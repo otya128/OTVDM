@@ -45,14 +45,14 @@ int main(int argc, char *argv[], char *envp[])
 	}
 	return 0;
 }
-
+char** load_importnametable(const char *file, int length);
 bool loadne(char *argv[])
 {
 	const char* program = argv[1];
 	FILE *fp = fopen(program, "rb");
 	if (!fp)
 	{
-		fprintf(stderr, "can't open file %s\n", program);
+		fprintf(stderr, "can't open file. %s\n", program);
 		return false;
 	}
 	fseek( fp, 0, SEEK_END );
@@ -64,15 +64,36 @@ bool loadne(char *argv[])
 	PIMAGE_DOS_HEADER EXE = (PIMAGE_DOS_HEADER)file;
 	if (EXE->e_magic != IMAGE_DOS_SIGNATURE)
 	{
+		fprintf(stderr, "this is not EXE file. %s\n", program);
 		return false;
 	}
 	//TODO:check
 	PIMAGE_OS2_HEADER NE = (PIMAGE_OS2_HEADER)(file + EXE->e_lfanew);
 	if (NE->ne_magic != IMAGE_OS2_SIGNATURE)
 	{
+		fprintf(stderr, "this is not NE file. %s\n", program);
 		return false;
 	}
+	char **modtable = load_importnametable((const char*)NE + NE->ne_imptab, NE->ne_cmod);
+	free(modtable);
 	free(file);
 	return true;
 }
-
+#define dprintf printf
+char** load_importnametable(const char *file, int length)
+{
+	file++;
+	dprintf("IMPORT NAMETABLE");
+	char **modtable = (char**)malloc(length);
+	for (int i = 0; i < length; i++)
+	{
+		BYTE strlen = *file++;
+		modtable[i] = (char*)malloc(strlen + 1);
+		for (int j = 0; j < strlen; j++)
+		{
+			modtable[i][j] = *file++;
+		}
+		modtable[i][strlen] = '\0';
+	}
+	return modtable;
+}
