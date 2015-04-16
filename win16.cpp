@@ -18,6 +18,7 @@
 #include <tlhelp32.h>
 #include <psapi.h>
 #include <winnt.h>
+#define dprintf printf
 bool is_started_from_command_prompt();
 bool loadne(char *argv[]);
 int main(int argc, char *argv[], char *envp[])
@@ -46,6 +47,26 @@ int main(int argc, char *argv[], char *envp[])
 	return 0;
 }
 char** load_importnametable(const char *file, int length);
+typedef enum : WORD
+{
+	DataSegment = 1,//Code
+	A = 2,
+	Loaded = 4,
+	//reserved8
+	Movable = 8,
+	Pure = 16,
+	Shareable = 16,
+	Preload = 32,
+	ExcuteOnly = 64,
+} segmentflag;
+typedef struct
+{
+	WORD offset;
+	WORD length;
+	segmentflag flag;
+	WORD minsize;
+} segment;
+//segment* load_segmentable(const char *file, int length);
 bool loadne(char *argv[])
 {
 	const char* program = argv[1];
@@ -75,15 +96,15 @@ bool loadne(char *argv[])
 		return false;
 	}
 	char **modtable = load_importnametable((const char*)NE + NE->ne_imptab, NE->ne_cmod);
+	segment *segmenttable = (segment*)((const char*)NE + NE->ne_segtab);
 	free(modtable);
 	free(file);
 	return true;
 }
-#define dprintf printf
 char** load_importnametable(const char *file, int length)
 {
+	dprintf("IMPORT NAMETABLE\n");
 	file++;
-	dprintf("IMPORT NAMETABLE");
 	char **modtable = (char**)malloc(length);
 	for (int i = 0; i < length; i++)
 	{
@@ -94,6 +115,8 @@ char** load_importnametable(const char *file, int length)
 			modtable[i][j] = *file++;
 		}
 		modtable[i][strlen] = '\0';
+		dprintf("%s\n", modtable[i]);
 	}
+
 	return modtable;
 }
