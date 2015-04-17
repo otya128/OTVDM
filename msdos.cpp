@@ -612,7 +612,6 @@ int main(int argc, char *argv[], char *envp[])
 	delete key_buf_scan;
 	
 //	SetConsoleTextAttribute(hStdout, csbi.wAttributes);
-	
 	return(retval);
 }
 
@@ -2016,6 +2015,10 @@ int msdos_process_exec(char *cmd, param_block_t *param, UINT8 al)
 			dprintf("This is NE.\n");
 			dos_loadne(file_buffer, &cs, &ss, &ip, &sp, mem);
 			paragraphs = free_paragraphs;//‚Æ‚è‚ ‚¦‚¸
+			if ((psp_seg = msdos_mem_alloc(first_mcb, paragraphs, 1)) == -1) {
+				msdos_mem_free(env_seg);
+				return(-1);
+			}
 		}
 		else
 		{
@@ -5820,6 +5823,7 @@ void msdos_syscall(unsigned num)
 		break;
 	case WIN16_CALL:
 		win16_call_module();
+		i80286_retf();
 		break;
 	default:
 //		fatalerror("int %02xh (ax=%04xh bx=%04xh cx=%04xh dx=%04x)\n", num, REG16(AX), REG16(BX), REG16(CX), REG16(DX));
