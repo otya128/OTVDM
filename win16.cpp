@@ -176,7 +176,7 @@ extern UINT8 mem[MAX_MEM + 3];
 //CD L
 //ここにデータを書く(2byte)(4byte?)
 //RETはこっち側で処理
-//引数月RETは引数BYTEスタックをpopする
+//引数月RETは引数BYTEスタックをpopする.
 char **modtable;
 typedef void(*modulehandler)();
 void KERNEL_call(WORD ordinal);
