@@ -22,5 +22,8 @@
     <ClInclude Include="msdos.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="win16.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

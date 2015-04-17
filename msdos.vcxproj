@@ -973,6 +973,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="msdos.h" />
+    <ClInclude Include="win16.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

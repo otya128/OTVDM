@@ -6,7 +6,7 @@
 */
 
 #include "msdos.h"
-
+#include "win16.h"
 #define my_strchr(str, chr) (char *)_mbschr((unsigned char *)(str), (unsigned int)(chr))
 #define my_strtok(tok, del) (char *)_mbstok((unsigned char *)(tok), (const unsigned char *)(del))
 #define my_strupr(str) (char *)_mbsupr((unsigned char *)(str))
@@ -520,7 +520,7 @@ bool is_started_from_command_prompt()
 
 #define IS_NUMERIC(c) ((c) >= '0' && (c) <= '9')
 
-int dosmain(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[], char *envp[])
 {
 	int arg_offset = 0;
 	int standard_env = 0;
@@ -2011,38 +2011,47 @@ int msdos_process_exec(char *cmd, param_block_t *param, UINT8 al)
 	UINT16 cs, ss, ip, sp;
 	
 	if(header->mz == 0x4d5a || header->mz == 0x5a4d) {
-		// memory allocation
-		int header_size = header->header_size * 16;
-		int load_size = header->pages * 512 - header_size;
-		if(header_size + load_size < 512) {
-			load_size = 512 - header_size;
+		if (isNE((const char*)file_buffer))
+		{
+			dprintf("This is NE.\n");
+			dos_loadne(file_buffer, &cs, &ss, &ip, &sp, mem);
+			paragraphs = free_paragraphs;//‚Æ‚è‚ ‚¦‚¸
 		}
-		paragraphs = (PSP_SIZE + load_size) >> 4;
-		if(paragraphs + header->min_alloc > free_paragraphs) {
-			msdos_mem_free(env_seg);
-			return(-1);
+		else
+		{
+			// memory allocation
+			int header_size = header->header_size * 16;
+			int load_size = header->pages * 512 - header_size;
+			if (header_size + load_size < 512) {
+				load_size = 512 - header_size;
+			}
+			paragraphs = (PSP_SIZE + load_size) >> 4;
+			if (paragraphs + header->min_alloc > free_paragraphs) {
+				msdos_mem_free(env_seg);
+				return(-1);
+			}
+			paragraphs += header->max_alloc ? header->max_alloc : header->min_alloc;
+			if (paragraphs > free_paragraphs) {
+				paragraphs = free_paragraphs;
+			}
+			if ((psp_seg = msdos_mem_alloc(first_mcb, paragraphs, 1)) == -1) {
+				msdos_mem_free(env_seg);
+				return(-1);
+			}
+			// relocation
+			int start_seg = psp_seg + (PSP_SIZE >> 4);
+			for (int i = 0; i < header->relocations; i++) {
+				int ofs = *(UINT16 *)(file_buffer + header->relocation_table + i * 4 + 0);
+				int seg = *(UINT16 *)(file_buffer + header->relocation_table + i * 4 + 2);
+				*(UINT16 *)(file_buffer + header_size + (seg << 4) + ofs) += start_seg;
+			}
+			memcpy(mem + (start_seg << 4), file_buffer + header_size, load_size);
+			// segments
+			cs = header->init_cs + start_seg;
+			ss = header->init_ss + start_seg;
+			ip = header->init_ip;
+			sp = header->init_sp - 2; // for symdeb
 		}
-		paragraphs += header->max_alloc ? header->max_alloc : header->min_alloc;
-		if(paragraphs > free_paragraphs) {
-			paragraphs = free_paragraphs;
-		}
-		if((psp_seg = msdos_mem_alloc(first_mcb, paragraphs, 1)) == -1) {
-			msdos_mem_free(env_seg);
-			return(-1);
-		}
-		// relocation
-		int start_seg = psp_seg + (PSP_SIZE >> 4);
-		for(int i = 0; i < header->relocations; i++) {
-			int ofs = *(UINT16 *)(file_buffer + header->relocation_table + i * 4 + 0);
-			int seg = *(UINT16 *)(file_buffer + header->relocation_table + i * 4 + 2);
-			*(UINT16 *)(file_buffer + header_size + (seg << 4) + ofs) += start_seg;
-		}
-		memcpy(mem + (start_seg << 4), file_buffer + header_size, load_size);
-		// segments
-		cs = header->init_cs + start_seg;
-		ss = header->init_ss + start_seg;
-		ip = header->init_ip;
-		sp = header->init_sp - 2; // for symdeb
 	} else {
 		// memory allocation
 		paragraphs = free_paragraphs;
@@ -5808,6 +5817,9 @@ void msdos_syscall(unsigned num)
 			pic[0].isr &= ~(1 << 2); // master
 		}
 		pic_update();
+		break;
+	case WIN16_CALL:
+		win16_call_module();
 		break;
 	default:
 //		fatalerror("int %02xh (ax=%04xh bx=%04xh cx=%04xh dx=%04x)\n", num, REG16(AX), REG16(BX), REG16(CX), REG16(DX));
