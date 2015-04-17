@@ -11,6 +11,7 @@ extern UINT8   m_prefix_seg;
 extern unsigned m_ea;
 extern UINT16 m_eo; /* HJB 12/13/98 effective offset of the address (before segment is added) */
 extern UINT8 m_ea_seg;   /* effective segment of the address */
+extern UINT32  m_base[4];
 #if defined(HAS_I386)
 #define SREG(x)				m_sreg[x].selector
 #define SREG_BASE(x)			m_sreg[x].base
@@ -176,11 +177,12 @@ extern UINT8 mem[MAX_MEM + 3];
 //CD L
 //ここにデータを書く(2byte)(4byte?)
 //RETはこっち側で処理
-//引数月RETは引数BYTEスタックをpopする.
+//引数月RETは引数BYTEスタックをpopする
 char **modtable;
 typedef void(*modulehandler)();
 void KERNEL_call(WORD ordinal);
 modulehandler kernel_table[256];
+modulehandler user_table[256];
 int win16_init();
 int _win16_init = win16_init();
 void win16_call_module()
@@ -194,14 +196,15 @@ void win16_call_module()
 		else
 			kernel_table[ordinal]();
 		return;
-	}/*
+	}
 	if (!strcmp(modtable[module], "USER"))
 	{
-		if (!kernel_table[ordinal])
-			KERNEL_call(ordinal);
-		else
-			kernel_table[ordinal]();
-	}*/
+		if (user_table[ordinal])
+		{
+			user_table[ordinal]();
+			return;
+		}
+	}
 	NOTIMPL("undefined %s function:%d\n", modtable[module], ordinal);
 }
 void KERNEL_call(WORD ordinal)
@@ -213,14 +216,58 @@ void KERNEL_call(WORD ordinal)
 		break;
 	}
 }
-void InitTask16()
+typedef WORD HANDLE16;
+typedef HANDLE16 HTASK16;
+typedef HANDLE16 HINSTANCE16;
+typedef HANDLE16 HWND16;
+void _WaitEvent16()
+{
+	HTASK16 hTask = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4) & 0xffff))));
+	REG16(AX) = TRUE;
+	REG16(DI) = 0;//対策
+}
+void _GetModuleFileName16()
+{
+	WORD nSize = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4) & 0xffff))));
+	DWORD lpFileName = *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 6) & 0xffff))));
+	HINSTANCE16 hInstance = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 10) & 0xffff))));
+}
+void _InitTask16()
 {
 	REG16(AX) = 1;
 }
+HWND HWND16ToHWND(HWND16 hWnd16)
+{
+	return (HWND)hWnd16;
+}
+void *FARPTRToPTR32(DWORD farptr)
+{
+	WORD segment = farptr >> 16;
+	WORD ptr = farptr;
+	return mem + segment * 16 + ptr;
+}
+void _MessageBox16()
+{
+	HWND16 hWnd = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 14) & 0xffff))));
+	DWORD lpText = *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 10) & 0xffff))));
+	DWORD lpCaption = *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 6) & 0xffff))));
+	WORD uType = *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4) & 0xffff))));
+	MessageBoxA(HWND16ToHWND(hWnd), (LPCSTR)FARPTRToPTR32(lpText), (LPCSTR)FARPTRToPTR32(lpCaption), uType);
+	REG16(AX) = 1;
+}
+void _InitApp16()
+{
+	HINSTANCE16 hInstance = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4) & 0xffff))));
+	REG16(AX) = TRUE;
+}
+//pascalは順番にスタックに積む
 int win16_init()
 {
-	int len = sizeof(kernel_table) / sizeof(modulehandler);
-	kernel_table[91] = InitTask16;
+	kernel_table[30] = _WaitEvent16;
+	kernel_table[49] = _GetModuleFileName16;
+	kernel_table[91] = _InitTask16;
+	user_table[1] = _MessageBox16;
+	user_table[5] = _InitApp16;
 	return 0;
 }
 //segment* load_segmentable(const char *file, int length);
@@ -229,7 +276,7 @@ int win16_init()
 //とりあえず1000:あたりに置いてみる
 //module tableをつくる
 //面倒だからとりあえず重複ありで考える
-void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UINT8 *mem)
+void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UINT16 *di, UINT16 *ds, UINT8 *mem)
 {
 	PIMAGE_DOS_HEADER EXE = (PIMAGE_DOS_HEADER)file;
 	PIMAGE_OS2_HEADER NE = (PIMAGE_OS2_HEADER)(file + EXE->e_lfanew);
@@ -287,7 +334,7 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 				dprintf("IMPORTORDINAL module=%s,ordinal=%d\n", modtable[table[j].importordinal.module - 1], table[j].importordinal.ordinal);
 				break;
 			case INTERNALREF:
-				addr = (table[j].internalref.segnum) * 0x1000 + table[j].internalref.offset;
+				addr = (table[j].internalref.segnum) * 0x10000 + table[j].internalref.offset;
 				dprintf("INTERNALREF segnum=%d,offset=0x%X,addr=%04X:%04X\n", table[j].internalref.segnum - 1, table[j].internalref.offset, (table[j].internalref.segnum) * 0x1000 , table[j].internalref.offset);
 				break;
 			case IMPORTNAME:
@@ -322,7 +369,10 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 		seg += 0x10000;
 		dprintf("load segment %X\n", i);
 	}
+	//toriaezu
 	*cs = 0x1000;
+	*di = 0x0000;
+	*ds = 0x2000;
 	/*
 	for (int i = 0; i < NE->ne_cmod; i++)
 	{

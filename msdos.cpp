@@ -2008,17 +2008,19 @@ int msdos_process_exec(char *cmd, param_block_t *param, UINT8 al)
 	exe_header_t *header = (exe_header_t *)file_buffer;
 	int paragraphs, free_paragraphs = msdos_mem_get_free(first_mcb, 1);
 	UINT16 cs, ss, ip, sp;
-	
+	UINT16 di, ds;//win16
+	bool isWIN16 = false;
 	if(header->mz == 0x4d5a || header->mz == 0x5a4d) {
 		if (isNE((const char*)file_buffer))
 		{
 			dprintf("This is NE.\n");
-			dos_loadne(file_buffer, &cs, &ss, &ip, &sp, mem);
+			dos_loadne(file_buffer, &cs, &ss, &ip, &sp, &di, &ds, mem);
 			paragraphs = free_paragraphs;//‚Æ‚è‚ ‚¦‚¸
 			if ((psp_seg = msdos_mem_alloc(first_mcb, paragraphs, 1)) == -1) {
 				msdos_mem_free(env_seg);
 				return(-1);
 			}
+			isWIN16 = true;
 		}
 		else
 		{
@@ -2129,6 +2131,11 @@ int msdos_process_exec(char *cmd, param_block_t *param, UINT8 al)
 		i386_load_segment_descriptor(DS);
 		i386_load_segment_descriptor(ES);
 		i386_load_segment_descriptor(SS);
+		if (isWIN16)
+		{
+			REG16(DI) = di;
+			SREG(DS) = ds;
+		}
 		
 		*(UINT16 *)(mem + (ss << 4) + sp) = 0;
 		i386_jmp_far(cs, ip);
