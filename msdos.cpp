@@ -6168,7 +6168,10 @@ void hardware_run()
 		}
 	}
 }
-
+void cpu_exexute_call_wrap()
+{
+	CPU_EXECUTE_CALL(CPU_MODEL);
+}
 void hardware_update()
 {
 	static UINT32 prev_time = 0;
