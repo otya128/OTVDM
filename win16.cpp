@@ -191,6 +191,7 @@ void win16_call_module()
 {
 	WORD module = *(WORD*)(mem + m_pc);
 	WORD ordinal = *(WORD*)(mem + m_pc + 2);
+	NOTIMPL("undefined %s function:%d\n", modtable[module], ordinal);
 	if (!strcmp(modtable[module], "KERNEL"))
 	{
 		if (!kernel_table[ordinal])
@@ -566,7 +567,7 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 	PIMAGE_OS2_HEADER NE = (PIMAGE_OS2_HEADER)(file + EXE->e_lfanew);
 	modtable = load_importnametable((char*)NE + NE->ne_imptab, NE->ne_cmod);
 	segment *segmenttable = (segment*)((char*)NE + NE->ne_segtab);
-	*cs = (UINT16)(NE->ne_csip >> 16);
+	*cs = (UINT16)(NE->ne_csip >> 16)* 0x1000;
 	*ip = (UINT16)(NE->ne_csip & 0xFFFF);
 	*ss = (UINT16)(NE->ne_sssp >> 16);
 	*sp = (UINT16)(NE->ne_sssp & 0xFFFF);
@@ -656,9 +657,11 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 		dprintf("load segment %X\n", i);
 	}
 	//toriaezu
-	*cs = 0x1000;
+	//*cs = 0x1000;
 	*di = 0x0000;
 	*ds = 0x2000;
+	*di = 0x0000;
+	*ds = NE->ne_autodata * 0x1000;
 	/*
 	for (int i = 0; i < NE->ne_cmod; i++)
 	{
