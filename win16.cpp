@@ -168,8 +168,8 @@ void _InitTask16()
 }
 #include <map>
 #include <string>
-HANDLE handle16_mapcnt = 0;
-HANDLE16 handle_mapcnt = 0;
+//ハンドルの総数
+WORD handle16_mapcnt = 0;
 std::map<std::string, DWORD> wprocmap;
 std::map<HANDLE, HANDLE16> handlemap;
 std::map<HANDLE16, HANDLE> handle16map;
@@ -181,14 +181,31 @@ HANDLE HANDLE16ToHANDLE(HANDLE16 handle16)
 	else
 		return handle16map[handle16];
 }
+HANDLE16 freeHANDLE16 = 1;
+HANDLE16Alloc HANDLE16array[65536];
+//ハンドルを割り当てる
+HANDLE16 AllocHANDLE16()
+{
+	HANDLE16 ret = freeHANDLE16;
+	freeHANDLE16 = HANDLE16array[(WORD)ret].next;
+	handle16_mapcnt++;
+	return ret;
+}
+void FreeHANDLE16(HANDLE16 handle)
+{
+	HANDLE16array[handle].next = freeHANDLE16;
+	freeHANDLE16 = handle;
+	handle16_mapcnt--;
+}
+//ハンドルを開放する
 HANDLE16 HANDLEToHANDLE16(HANDLE handle)
 {
 	if (!handle) return NULL;
 	if (handlemap.find(handle) == handlemap.end())
 	{
-		handle_mapcnt++;
-		handle16map[handle_mapcnt] = handle;
-		return handlemap[handle] = handle_mapcnt;
+		HANDLE16 handle16 = AllocHANDLE16();
+		handle16map[handle16] = handle;
+		return handlemap[handle] = handle16;
 	}
 	else
 		return handlemap[handle];
@@ -404,6 +421,11 @@ int win16_init()
 	user_table[108] = _GetMessage16;
 	user_table[114] = _DispatchMessage16;
 	gdi_table[87] = _GetStockObject16;
+	//init HANDLE16array
+	for (int i = 1; i < 65536; i++)
+	{
+		HANDLE16array[i].next = i + 1;
+	}
 	return 0;
 }
 //segment* load_segmentable(const char *file, int length);
@@ -418,13 +440,15 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 	PIMAGE_OS2_HEADER NE = (PIMAGE_OS2_HEADER)(file + EXE->e_lfanew);
 	modtable = load_importnametable((char*)NE + NE->ne_imptab, NE->ne_cmod);
 	segment *segmenttable = (segment*)((char*)NE + NE->ne_segtab);
-	*cs = (UINT16)(NE->ne_csip >> 16)* 0x1000;
+	*cs = (UINT16)(NE->ne_csip >> 16)* 0x1000 + 1;
 	*ip = (UINT16)(NE->ne_csip & 0xFFFF);
 	*ss = (UINT16)(NE->ne_sssp >> 16);
 	*sp = (UINT16)(NE->ne_sssp & 0xFFFF);
 	*sp = 0xFFFF;//tekitou
 	*ss = 0x3000;
-	DWORD seg = 0x10000;
+	//最初の16?byteは予約
+	DWORD startseg = 0x10010;
+	DWORD seg = startseg;
 	DWORD func_jmp = 0x70000;
 	WORD func = 0;
 	for (int i = 0; i < NE->ne_cseg; i++)
@@ -471,6 +495,7 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 				break;
 			case INTERNALREF:
 				addr = (table[j].internalref.segnum) * 0x10000 + table[j].internalref.offset;
+				//addr |= 0x00010000;
 				dprintf("INTERNALREF segnum=%d,offset=0x%X,addr=%04X:%04X\n", table[j].internalref.segnum - 1, table[j].internalref.offset, (table[j].internalref.segnum) * 0x1000 , table[j].internalref.offset);
 				break;
 			case IMPORTNAME:
@@ -512,7 +537,9 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 	*di = 0x0000;
 	*ds = 0x2000;
 	*di = 0x0000;
-	*ds = NE->ne_autodata * 0x1000;
+	*ds = NE->ne_autodata * 0x1000 + 1;
+	TASK16 task;
+	
 	/*
 	for (int i = 0; i < NE->ne_cmod; i++)
 	{

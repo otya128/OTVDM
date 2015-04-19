@@ -152,10 +152,20 @@ typedef struct {
 } MSG16;
 #pragma pack()
 //ïœä∑ä÷êî
-
+HANDLE16 AllocHANDLE16();
 HANDLE HANDLE16ToHANDLE(HANDLE16 handle16);
 HANDLE16 HANDLEToHANDLE16(HANDLE handle);
 void *FARPTRToPTR32(DWORD farptr);
-
+typedef struct
+{
+	HINSTANCE16 hInst;
+} TASK16;
 extern HTASK16 CurrentTask;
+typedef struct
+{
+	HANDLE16 id;
+	HANDLE16 next;
+	DWORD data;
+} HANDLE16Alloc;
+extern HANDLE16Alloc HANDLE16array[65536];
 #endif

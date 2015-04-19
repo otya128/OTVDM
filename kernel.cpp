@@ -4,18 +4,18 @@
 //30
 BOOL16 WaitEvent16(HTASK16 hTask)
 {
-
+	return 0;
 }
 HTASK16 CurrentTask = 0;//Ç∆ÇËÇ†Ç¶Ç∏
 //36
-HTASK16 GetCurrentTask()
+HTASK16 GetCurrentTask16()
 {
 	return CurrentTask;
 }
 //49
 INT16 GetModuleFileName16(HINSTANCE16 hModule, LPSTR lpFileName, INT16 nSize)
 {
-
+	return 0;
 }
 //ÉåÉWÉXÉ^ï‘Çµ
 //91
