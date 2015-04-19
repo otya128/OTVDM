@@ -1,64 +1,5 @@
 #include "win16.h"
-union i80286basicregs
-{                   /* eight general registers */
-	UINT16 w[8];    /* viewed as 16 bits registers */
-	UINT8  b[16];   /* or as 8 bit registers */
-};
-extern i80286basicregs m_regs;
-extern UINT32  m_amask;          /* address mask */
-extern UINT32  m_pc;
-extern UINT8   m_prefix_seg;
-extern unsigned m_ea;
-extern UINT16 m_eo; /* HJB 12/13/98 effective offset of the address (before segment is added) */
-extern UINT8 m_ea_seg;   /* effective segment of the address */
-extern UINT32  m_base[4];
-extern UINT16  m_sregs[4];
-#if defined(HAS_I386)
-#define SREG(x)				m_sreg[x].selector
-#define SREG_BASE(x)			m_sreg[x].base
-
-int cpu_type, cpu_step;
-#else
-#define REG8(x)				m_regs.b[x]
-#define REG16(x)			m_regs.w[x]
-#define SREG(x)				m_sregs[x]
-#define SREG_BASE(x)			m_base[x]
-#define m_CF				m_CarryVal
-#define m_a20_mask			AMASK
-#define i386_load_segment_descriptor(x)	m_base[x] = SegBase(x)
-#if defined(HAS_I286)
-#define i386_set_a20_line(x)	i80286_set_a20_line(x)
-#else
-#define i386_set_a20_line(x)
-#endif
-#define i386_set_irq_line(x, y)		set_irq_line(x, y)
-#endif
-// endian-based value: first value is if 'endian' is little-endian, second is if 'endian' is big-endian
-#define ENDIAN_VALUE_LE_BE(endian,leval,beval)	(((endian) == ENDIANNESS_LITTLE) ? (leval) : (beval))
-
-// endian-based value: first value is if native endianness is little-endian, second is if native is big-endian
-#define NATIVE_ENDIAN_VALUE_LE_BE(leval,beval)	ENDIAN_VALUE_LE_BE(ENDIANNESS_NATIVE, leval, beval)
-
-// endian-based value: first value is if 'endian' matches native, second is if 'endian' doesn't match native
-#define ENDIAN_VALUE_NE_NNE(endian,leval,beval)	(((endian) == ENDIANNESS_NATIVE) ? (neval) : (nneval))
-/*****************************************************************************/
-/* src/emu/emucore.h */
-
-// constants for expression endianness
-enum endianness_t
-{
-	ENDIANNESS_LITTLE,
-	ENDIANNESS_BIG
-};
-
-// declare native endianness to be one or the other
-#ifdef LSB_FIRST
-const endianness_t ENDIANNESS_NATIVE = ENDIANNESS_LITTLE;
-#else
-const endianness_t ENDIANNESS_NATIVE = ENDIANNESS_BIG;
-#endif
-
-#include "mame/emu/cpu/i86/i86priv.h"
+#include "kernel.h"
 bool isNE(const char* file)
 {
 	PIMAGE_DOS_HEADER EXE = (PIMAGE_DOS_HEADER)file;
@@ -94,74 +35,6 @@ int win16main(int argc, char *argv[], char *envp[])
 	}
 	return 0;
 }
-typedef enum : BYTE
-{
-	SOURCE_MASK = 0xF,
-	LOBYTE = 0x00,
-	SEGMENT = 2,
-	FAR_ADDR = 3,
-	OFFSET = 5,
-} reloctype;
-typedef enum : BYTE
-{
-	TARGET_MASK = 0x3,
-	INTERNALREF = 0x0,
-	IMPORTORDINAL = 0x1,
-	IMPORTNAME = 0x2,
-	OSFIXUP = 0x3,
-	ADDITIVE = 0x4,
-} relocflag;
-typedef struct
-{
-	reloctype type;
-	relocflag flag;
-	WORD offset;
-	union
-	{
-		struct 
-		{
-			BYTE segnum;
-			BYTE _;
-			WORD offset;
-		} internalref;
-
-		struct
-		{
-			WORD module;
-			WORD name;
-		} importname;
-
-		struct
-		{
-			WORD module;
-			WORD ordinal;
-		} importordinal;
-	};
-} reloctable;
-#if defined(HAS_I386)
-#define SREG(x)				m_sreg[x].selector
-#define SREG_BASE(x)			m_sreg[x].base
-
-int cpu_type, cpu_step;
-#else
-#define REG8(x)				m_regs.b[x]
-#define REG16(x)			m_regs.w[x]
-#define SREG(x)				m_sregs[x]
-#define SREG_BASE(x)			m_base[x]
-#define m_CF				m_CarryVal
-#define m_a20_mask			AMASK
-#define i386_load_segment_descriptor(x)	m_base[x] = SegBase(x)
-#if defined(HAS_I286)
-#define i386_set_a20_line(x)	i80286_set_a20_line(x)
-#else
-#define i386_set_a20_line(x)
-#endif
-#define i386_set_irq_line(x, y)		set_irq_line(x, y)
-#endif
-
-#define MAX_MEM 0x1000000
-extern UINT8 mem[MAX_MEM + 3];
-#define NOTIMPL dprintf("noimpl:");dprintf
 //moduleの関数を呼び出す
 //とりあえず割り込み
 //PUSH AX
@@ -187,17 +60,18 @@ modulehandler user_table[2048];
 modulehandler gdi_table[2048];
 int win16_init();
 int _win16_init = win16_init();
+typedef struct
+{
+
+} INSTANCE16;
 void win16_call_module()
 {
 	WORD module = *(WORD*)(mem + m_pc);
 	WORD ordinal = *(WORD*)(mem + m_pc + 2);
-	NOTIMPL("undefined %s function:%d\n", modtable[module], ordinal);
+	//NOTIMPL("undefined %s function:%d\n", modtable[module], ordinal);
 	if (!strcmp(modtable[module], "KERNEL"))
 	{
-		if (!kernel_table[ordinal])
-			KERNEL_call(ordinal);
-		else
-			kernel_table[ordinal]();
+		kernel_table[ordinal]();
 		return;
 	}
 	if (!strcmp(modtable[module], "USER"))
@@ -218,69 +92,75 @@ void win16_call_module()
 	}
 	NOTIMPL("undefined %s function:%d\n", modtable[module], ordinal);
 }
-void KERNEL_call(WORD ordinal)
+//呼び出し規約pascalでの返り値
+//16bit以内の場合AX//8bitの場合は知らない
+void pascal_result_int16(WORD result)
 {
-	switch (ordinal)
-	{
-	default:
-		NOTIMPL("undefined KERNEL function:%d\n", ordinal);
-		break;
-	}
+	REG16(AX) = result;
 }
-typedef WORD HANDLE16;
-typedef HANDLE16 HTASK16;
-typedef HANDLE16 HINSTANCE16;
-typedef HANDLE16 HWND16;
-typedef HANDLE16 HGDIOBJ16;
-typedef HANDLE16 HICON16;
-typedef HANDLE16 HCURSOR16;
-typedef HANDLE16 HBRUSH16;
-typedef HANDLE16 HMENU16;
-typedef unsigned short  BOOL16;
-typedef DWORD           SEGPTR;
-typedef DWORD           LPVOID16;
-typedef DWORD WNDPROC16;//far pascal
-typedef UINT16 WPARAM16;
-typedef INT32 LPARAM16;
-typedef INT32 LRESULT16;
-#pragma pack(1)
-typedef struct
+//32bitの場合DXが上位(なはず)
+void pascal_result_int32(DWORD result)
 {
-	UINT16      style;
-	WNDPROC16   lpfnWndProc;
-	INT16       cbClsExtra;
-	INT16       cbWndExtra;
-	HANDLE16    hInstance;
-	HICON16     hIcon;
-	HCURSOR16   hCursor;
-	HBRUSH16    hbrBackground;
-	SEGPTR      lpszMenuName;
-	SEGPTR      lpszClassName;
-} WNDCLASS16, *LPWNDCLASS16;
-typedef struct {
-	INT16 x;
-	INT16 y;
-} POINT16;
-typedef struct {
-	HWND16    hwnd;
-	UINT16    message;
-	WPARAM16  wParam;
-	LPARAM16  lParam;
-	DWORD   time;
-	POINT16   pt;
-} MSG16;
-#pragma pack()
+	REG16(AX) = result & 0xFFFF;
+	REG16(DX) = result >> 16;
+}
+//pascalの場合
+//func(a,b,c)
+//の場合順番に
+//PUSH a,PUSH b,PUSH cされる
+//なのでnは新しい順
+VOID *get_arg(int n)
+{
+	return (WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + n) & 0xffff))));
+}
+WORD *get_int16_arg(int n)
+{
+	return (WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + n) & 0xffff))));
+}
+WORD get_int16_argnp(int n)
+{
+	return *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + n) & 0xffff))));
+}
+WORD get_int16_argex(int *n)
+{
+	WORD* _ = (WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + *n) & 0xffff))));
+	*n += sizeof(WORD);
+	return *_;
+}
+DWORD *get_int32_arg(int n)
+{
+	return (DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + n) & 0xffff))));
+}
+DWORD get_int32_argnp(int n)
+{
+	return *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + n) & 0xffff))));
+}
+DWORD get_int32_argex(int *n)
+{
+	DWORD* _ = (DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + *n) & 0xffff))));
+	*n += sizeof(DWORD);
+	return *_;
+}
+char *get_string(int n)
+{
+	return (char*)FARPTRToPTR32((DWORD)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + n) & 0xffff)))));
+}
+char *get_stringex(int *n)
+{
+	char* _ = (char*)FARPTRToPTR32(*(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + *n) & 0xffff)))));
+	*n += sizeof(DWORD);
+	return _;
+}
 void _WaitEvent16()
 {
-	HTASK16 hTask = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4) & 0xffff))));
-	REG16(AX) = TRUE;
-	REG16(DI) = 0;//対策
+	pascal_result_int16(WaitEvent16(get_int16_argnp(0)));
 }
 void _GetModuleFileName16()
 {
 	WORD nSize = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4) & 0xffff))));
 	DWORD lpFileName = *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 6) & 0xffff))));
 	HINSTANCE16 hInstance = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 10) & 0xffff))));
+	pascal_result_int16(GetModuleFileName16(hInstance, (LPSTR)FARPTRToPTR32(lpFileName), nSize));
 }
 void _InitTask16()
 {
@@ -321,40 +201,6 @@ void *FARPTRToPTR32(DWORD farptr)
 	return mem + segment * 16 + ptr;
 }
 
-VOID *get_arg(int n)
-{
-	return (WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + n) & 0xffff))));
-}
-WORD *get_int16_arg(int n)
-{
-	return (WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + n) & 0xffff))));
-}
-WORD get_int16_argex(int *n)
-{
-	WORD* _ = (WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + *n) & 0xffff))));
-	*n += sizeof(WORD);
-	return *_;
-}
-DWORD *get_int32_arg(int n)
-{
-	return (DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + n) & 0xffff))));
-}
-DWORD get_int32_argex(int *n)
-{
-	DWORD* _ = (DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + *n) & 0xffff))));
-	*n += sizeof(DWORD);
-	return *_;
-}
-char *get_string(int n)
-{
-	return (char*)FARPTRToPTR32((DWORD)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + n) & 0xffff)))));
-}
-char *get_stringex(int *n)
-{
-	char* _ = (char*)FARPTRToPTR32(*(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4 + *n) & 0xffff)))));
-	*n += sizeof(DWORD);
-	return _;
-}
 void _MessageBox16()
 {
 	HWND16 hWnd = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 14) & 0xffff))));
@@ -391,14 +237,18 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	HWND16 hwnd16 = HANDLEToHANDLE16((HANDLE)hwnd);
 	if (hwnd16)
 	{
+		dprintf("wpp:%d,%X\n", inging, msg, msg, wp, lp);
 		char name[256];
 		//dprintf("%X\t", msg, msg, wp, lp);
 		GetClassNameA(hwnd, name, sizeof(name));
 		std::map<std::string, DWORD>::iterator itr;
 		if ((itr = wprocmap.find(name)) != wprocmap.end())
-		{
-			//if (inging == 2)return DefWindowProc(hwnd, msg, wp, lp);
-			//if (inging) inging = 2;
+		{/*
+			if (inging == 2)
+			{
+				inging = 3;
+				return DefWindowProc(hwnd, msg, wp, lp);
+			}*///if (inging) inging = 2;
 			WORD cs, ip;
 			ip = m_pc - m_base[SREGS::CS];
 			cs = m_sregs[CS];
@@ -435,6 +285,7 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			return REG16(AX) | REG16(DX) << 16;
 		}
 	}
+	dprintf("wpp:%d,%X\n", inging, msg, msg, wp, lp);
 	return DefWindowProc(hwnd, msg, wp, lp);
 }
 //41
@@ -488,7 +339,7 @@ void _DefWindowProc16()
 	HWND16 hwnd = get_int16_argex(&argc);
 	HWND hwnd32 = (HWND)HANDLE16ToHANDLE(hwnd);
 	//TODO:result
-	//dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X\n", hwnd, msg, wp, lp);
+	dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X\n", hwnd, msg, wp, lp);
 	inging = 2;
 	REG16(AX) = DefWindowProcA(hwnd32, msg, wp, lp);
 	inging = 0;
