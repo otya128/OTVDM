@@ -345,7 +345,7 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			}
 			i86_gfree_ptr(stkcnt);
 			//dprintf("%X\n", m_pc, msg, wp, lp, cs, ip);
-			return REG16(AX);// | REG16(DX) << 16;
+			return REG16(AX) | REG16(DX) << 16;
 		}
 	}
 	dprintf("wpp:%d,%X\n", inging, msg, msg, wp, lp);
@@ -432,7 +432,9 @@ void _DefWindowProc16()
 	//TODO:result
 	dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X\n", hwnd, msg, wp, lp);
 	inging = 2;
-	REG16(AX) = DefWindowProcA(hwnd32, msg, wp, lp);
+	LRESULT16 res = DefWindowProcA(hwnd32, msg, wp, lp);
+	REG16(AX) = res;
+	REG16(DX) = res >> 16;
 	inging = 0;
 }
 void _GetMessage16()
