@@ -164,7 +164,7 @@ void _GetModuleFileName16()
 }
 void _InitTask16()
 {
-	REG16(AX) = 1;
+	InitTask16();
 }
 #include <map>
 #include <string>
@@ -183,6 +183,10 @@ HANDLE HANDLE16ToHANDLE(HANDLE16 handle16)
 }
 HANDLE16 freeHANDLE16 = 1;
 HANDLE16Data HANDLE16array[65536];
+HANDLE16Data *gethandledata(HANDLE16 handle)
+{
+	return &HANDLE16array[(WORD)handle];
+}
 //ハンドルを割り当てる
 //詳しくは知らないけどKRNL386.EXE,USER.EXE,GDI.EXEごとにハンドルが分かれそうな感じがする
 HANDLE16 AllocHANDLE16()
@@ -615,7 +619,6 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 	*di = 0x0000;
 	*ds = NE->ne_autodata * 0x1000 + 1;
 	TASK16 task;
-	
 	/*
 	for (int i = 0; i < NE->ne_cmod; i++)
 	{

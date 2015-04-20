@@ -117,6 +117,7 @@ typedef HANDLE16 HICON16;
 typedef HANDLE16 HCURSOR16;
 typedef HANDLE16 HBRUSH16;
 typedef HANDLE16 HMENU16;
+typedef HANDLE16 HGLOBAL16;
 typedef unsigned short  BOOL16;
 typedef DWORD           SEGPTR;
 typedef DWORD           LPVOID16;

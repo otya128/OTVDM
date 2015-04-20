@@ -2,6 +2,10 @@
 KRNL386.EXE‚Ìƒwƒbƒ_
 */
 #include "wow32.h"
+//15
+HGLOBAL16 GlobalAlloc16(UINT16 flags, DWORD size);
+//18
+LPVOID16 GlobalLock16(HGLOBAL16 hMem);
 //30
 BOOL16 WaitEvent16(HTASK16 hTask);
 //49

@@ -20,7 +20,11 @@
 #include <psapi.h>
 #include <winnt.h>
 //#include "mame/emu/cpu/i86/i286.c"
+#ifdef _DEBUG
 #define dprintf printf
+#else
+#define dprintf(...)
+#endif
 bool isNE(const char* file);
 void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UINT16 *di, UINT16 *ds, UINT8 *mem);
 bool is_started_from_command_prompt();
