@@ -184,6 +184,7 @@ HANDLE HANDLE16ToHANDLE(HANDLE16 handle16)
 HANDLE16 freeHANDLE16 = 1;
 HANDLE16Alloc HANDLE16array[65536];
 //ハンドルを割り当てる
+//詳しくは知らないけどKRNL386.EXE,USER.EXE,GDI.EXEごとにハンドルが分かれそうな感じがする
 HANDLE16 AllocHANDLE16()
 {
 	HANDLE16 ret = freeHANDLE16;
@@ -244,11 +245,28 @@ void _PostQuitMessage16()
 // offsets and addresses are 32-bit (for now...)
 typedef UINT32	offs_t;
 void write_word(offs_t byteaddress, UINT16 data);
+void write_byte(offs_t byteaddress, UINT8 data);
 #define write_word_unaligned write_word
 extern UINT16  m_limit[4];
 extern UINT8 m_rights[4];
 char inging = false;
 void cpu_exexute_call_wrap();
+DWORD global_stack = 0xE0000;
+#define GPUSH(val)               { WriteByte(((global_stack) & AMASK), val); global_stack += 1;}
+DWORD i86_galloca_ptr(void *ptr, WORD size)
+{
+	char *wp = (char*)ptr;
+	DWORD p = global_stack;
+	while (--size)
+	{
+		GPUSH(*wp++);
+	}
+	return (p << 12) & 0xF0000000 | (p & 0xFFFF);
+}
+void i86_gfree_ptr(WORD size)
+{
+	global_stack += size;
+}
 LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
 	HWND16 hwnd16 = HANDLEToHANDLE16((HANDLE)hwnd);
@@ -275,20 +293,43 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			m_rights[CS] = 0x9a;
 			m_limit[CS] = 0xffff;
 			UINT16 stk = m_regs.w[SP];
-			m_regs.w[SP] -= 2;
-			WriteWord(((m_base[SS] + m_regs.w[SP]) & AMASK), hwnd16);
-			m_regs.w[SP] -= 2;
-			WriteWord(((m_base[SS] + m_regs.w[SP]) & AMASK), msg);
-			m_regs.w[SP] -= 2;
-			WriteWord(((m_base[SS] + m_regs.w[SP]) & AMASK), wp);
-			m_regs.w[SP] -= 2;
-			WriteWord(((m_base[SS] + m_regs.w[SP]) & AMASK), lp >> 16);
-			m_regs.w[SP] -= 2;
-			WriteWord(((m_base[SS] + m_regs.w[SP]) & AMASK), lp & 0xFFFF);
-			m_regs.w[SP] -= 2;
-			WriteWord(((m_base[SS] + m_regs.w[SP]) & AMASK), cs);
-			m_regs.w[SP] -= 2;
-			WriteWord(((m_base[SS] + m_regs.w[SP]) & AMASK), ip);
+			int stkcnt = 0;
+			switch (msg)
+			{
+			case WM_CREATE:
+			{
+				//lparam=LPCREATESTRUCT
+				LPCREATESTRUCTA create = (LPCREATESTRUCTA)lp;
+				CREATESTRUCT16 create16;//スタック上に確保
+				create16.lpCreateParams = (LPVOID16)create->lpCreateParams;
+				create16.hInstance = HANDLEToHANDLE16(create->hInstance);
+				create16.hMenu = HANDLEToHANDLE16(create->hMenu);
+				create16.hwndParent = HANDLEToHANDLE16(create->hwndParent);
+				create16.cy = (INT16)create->cy;
+				create16.cx = (INT16)create->cx;
+				create16.y = (INT16)create->y;
+				create16.x = (INT16)create->x;
+				create16.style = (LONG32)create->style;
+				//TODO:この値をずっと保持する場合互換性が保たれない
+				create16.lpszName = i86_galloca_ptr((void*)create->lpszName, strlen(create->lpszName) + 2);
+				stkcnt += strlen(create->lpszName) + 2;
+				create16.lpszClass = i86_galloca_ptr((void*)create->lpszClass, strlen(create->lpszClass) + 2);
+				stkcnt += strlen(create->lpszClass) + 2;
+				create16.dwExStyle = create->dwExStyle;
+				lp = i86_galloca_ptr(&create16, sizeof(CREATESTRUCT16));
+				stkcnt += sizeof(CREATESTRUCT16);
+			}
+			break;
+			case WM_NCPAINT:
+				return DefWindowProc(hwnd, msg, wp, lp);
+			}
+			PUSH(hwnd16);
+			PUSH(msg);
+			PUSH(wp);
+			PUSH(lp >> 16);
+			PUSH(lp & 0xFFFF);
+			PUSH(cs);
+			PUSH(ip);
 			m_pc = (m_base[CS] + offset)&AMASK;
 			//dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X,cs:%X,ip:%X\n",hwnd16,msg,wp,lp,cs,ip);
 				//CreateWindowの中でも呼ばれるので強引に
@@ -298,6 +339,7 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 				//dprintf("%X\t", m_pc, msg, wp, lp, cs, ip);
 				cpu_exexute_call_wrap();
 			}
+			i86_gfree_ptr(stkcnt);
 			//dprintf("%X\n", m_pc, msg, wp, lp, cs, ip);
 			return REG16(AX) | REG16(DX) << 16;
 		}
@@ -355,6 +397,28 @@ void _DefWindowProc16()
 	UINT16 msg = get_int16_argex(&argc);
 	HWND16 hwnd = get_int16_argex(&argc);
 	HWND hwnd32 = (HWND)HANDLE16ToHANDLE(hwnd);
+	switch (msg)
+	{
+	case WM_CREATE:
+	{
+		CREATESTRUCT16 *create16 = (CREATESTRUCT16*)FARPTRToPTR32(lp);
+		CREATESTRUCTA create;
+		create.lpCreateParams = (LPVOID)create16->lpCreateParams;
+		create.hInstance = (HINSTANCE)HANDLE16ToHANDLE(create16->hInstance);
+		create.hMenu = (HMENU)HANDLE16ToHANDLE(create16->hMenu);
+		create.hwndParent = (HWND)HANDLE16ToHANDLE(create16->hwndParent);
+		create.cy = create16->cy;
+		create.cx = create16->cx;
+		create.y = create16->y;
+		create.x = create16->x;
+		create.style = (LONG32)create16->style;
+		create.lpszName = (LPCSTR)FARPTRToPTR32(create16->lpszName);
+		create.lpszClass = (LPCSTR)FARPTRToPTR32(create16->lpszClass);
+		create.dwExStyle = create16->dwExStyle;
+		lp = (LPARAM)&create;
+	}
+		break;
+	}
 	//TODO:result
 	dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X\n", hwnd, msg, wp, lp);
 	inging = 2;

@@ -1,5 +1,5 @@
 ﻿# OTVDM
-64bit版Windowsで16bit版Windows用のファイルを実行するプログラム。
+64bit版Windowsでも16bit版Windows用のファイルを実行するプログラム。
 軽く調べたところwineくらいしか同じような事をしているものは無かったので作った。
 # WOWOW
 ``` Windows16 on Windows32 on Windows64 ```

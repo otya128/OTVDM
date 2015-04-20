@@ -120,10 +120,12 @@ typedef HANDLE16 HMENU16;
 typedef unsigned short  BOOL16;
 typedef DWORD           SEGPTR;
 typedef DWORD           LPVOID16;
+typedef DWORD           LPCSTR16;
 typedef DWORD WNDPROC16;//far pascal
 typedef UINT16 WPARAM16;
 typedef INT32 LPARAM16;
 typedef INT32 LRESULT16;
+typedef INT32 LONG16;
 #pragma pack(1)
 typedef struct
 {
@@ -150,6 +152,20 @@ typedef struct {
 	DWORD   time;
 	POINT16   pt;
 } MSG16;
+typedef struct {
+	LPVOID16    lpCreateParams;
+	HINSTANCE16 hInstance;
+	HMENU16     hMenu;
+	HWND16      hwndParent;
+	INT16       cy;
+	INT16       cx;
+	INT16       y;
+	INT16       x;
+	LONG16      style;
+	LPCSTR16   lpszName;
+	LPCSTR16   lpszClass;
+	DWORD     dwExStyle;
+} CREATESTRUCT16;
 #pragma pack()
 //ïœä∑ä÷êî
 HANDLE16 AllocHANDLE16();
