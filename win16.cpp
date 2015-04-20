@@ -320,8 +320,12 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 				stkcnt += sizeof(CREATESTRUCT16);
 			}
 			break;
+			case WM_SETCURSOR:
+			case WM_MOUSEACTIVATE:
+			case WM_ERASEBKGND:
 			case WM_NCPAINT:
-				return DefWindowProc(hwnd, msg, wp, lp);
+				wp = HANDLEToHANDLE16((HANDLE)wp);
+				break;
 			}
 			PUSH(hwnd16);
 			PUSH(msg);
@@ -341,7 +345,7 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			}
 			i86_gfree_ptr(stkcnt);
 			//dprintf("%X\n", m_pc, msg, wp, lp, cs, ip);
-			return REG16(AX) | REG16(DX) << 16;
+			return REG16(AX);// | REG16(DX) << 16;
 		}
 	}
 	dprintf("wpp:%d,%X\n", inging, msg, msg, wp, lp);
@@ -393,7 +397,7 @@ void _DefWindowProc16()
 {
 	int argc = 0;
 	LPARAM16 lp = get_int32_argex(&argc);
-	WPARAM16 wp = get_int16_argex(&argc);
+	WPARAM wp = get_int16_argex(&argc);
 	UINT16 msg = get_int16_argex(&argc);
 	HWND16 hwnd = get_int16_argex(&argc);
 	HWND hwnd32 = (HWND)HANDLE16ToHANDLE(hwnd);
@@ -417,6 +421,12 @@ void _DefWindowProc16()
 		create.dwExStyle = create16->dwExStyle;
 		lp = (LPARAM)&create;
 	}
+	break;
+	case WM_SETCURSOR:
+	case WM_MOUSEACTIVATE:
+	case WM_ERASEBKGND:
+	case WM_NCPAINT:
+		wp = (WPARAM)HANDLE16ToHANDLE(wp);
 		break;
 	}
 	//TODO:result
