@@ -182,6 +182,7 @@ typedef struct
 	HANDLE16 id;
 	HANDLE16 next;
 	DWORD data;
-} HANDLE16Alloc;
-extern HANDLE16Alloc HANDLE16array[65536];
+} HANDLE16Data;
+extern HANDLE16Data HANDLE16array[65536];
+HANDLE16Data *gethandledata(HANDLE16 handle);
 #endif

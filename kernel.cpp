@@ -21,5 +21,6 @@ INT16 GetModuleFileName16(HINSTANCE16 hModule, LPSTR lpFileName, INT16 nSize)
 //91
 void InitTask16()
 {
+	HTASK16 task = GetCurrentTask16();
 	REG16(AX) = 0;//ê≥èÌ
 }

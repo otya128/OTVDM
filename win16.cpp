@@ -182,7 +182,7 @@ HANDLE HANDLE16ToHANDLE(HANDLE16 handle16)
 		return handle16map[handle16];
 }
 HANDLE16 freeHANDLE16 = 1;
-HANDLE16Alloc HANDLE16array[65536];
+HANDLE16Data HANDLE16array[65536];
 //ハンドルを割り当てる
 //詳しくは知らないけどKRNL386.EXE,USER.EXE,GDI.EXEごとにハンドルが分かれそうな感じがする
 HANDLE16 AllocHANDLE16()
