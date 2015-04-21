@@ -594,8 +594,15 @@ int main(int argc, char *argv[], char *envp[])
 		timeGetDevCaps(&caps, sizeof(TIMECAPS));
 		timeBeginPeriod(caps.wPeriodMin);
 		hardware_run();
+		if (!is_started_from_command_prompt())
+		{
+			printf("\nStart this program from a command prompt!\n\nHit any key to quit...\n");
+			while (!_kbhit()) {
+				Sleep(10);
+			}
+		}
 		if(bSuccess) {
-			if(restore_console_on_exit) {
+			if (restore_console_on_exit) {
 				SMALL_RECT rect = {0, 0, csbi.srWindow.Right - csbi.srWindow.Left, csbi.srWindow.Bottom - csbi.srWindow.Top};
 				SetConsoleScreenBufferSize(hStdout, csbi.dwSize);
 				SetConsoleWindowInfo(hStdout, TRUE, &rect);
@@ -612,12 +619,6 @@ int main(int argc, char *argv[], char *envp[])
 	delete key_buf_scan;
 	
 //	SetConsoleTextAttribute(hStdout, csbi.wAttributes);
-	if (!is_started_from_command_prompt()) {
-		fprintf(stderr, "\nStart this program from a command prompt!\n\nHit any key to quit...");
-		while (!_kbhit()) {
-			Sleep(10);
-		}
-	}
 	return(retval);
 }
 
