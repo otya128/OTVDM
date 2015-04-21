@@ -1,6 +1,33 @@
 #include "win16.h"
 #include "kernel.h"
 #include "user.h"
+void enable_visualstyle(char *path)
+{
+	ACTCTXA actctx = { 0 };
+	actctx.cbSize = sizeof(actctx);
+	char p2[1024];
+	strcpy_s(p2, path);
+	char *p3;
+	//実行ファイルのディレクトリにvisualstyle.manifestを繋げる
+	if ((p3 = strrchr(p2, '\\')) || (p3 = strrchr(p2, '/')))
+	{
+		if (p2 + sizeof(p2) < p3 + 1 + sizeof("visualstyle.manifest"))return;//path長すぎ
+		strcpy(p3 + 1, "visualstyle.manifest");
+		actctx.lpSource = p2;
+	}
+	else
+	{
+		actctx.lpSource = (LPCSTR)"visualstyle.manifest";
+	}
+	HANDLE result = CreateActCtxA(&actctx);
+	if ((int)result == -1)
+	{
+		actctx.lpSource = (LPCSTR)"visualstyle.manifest";
+		result = CreateActCtxA(&actctx);//それでもダメなら
+	}
+	ULONG_PTR lpCookie;
+	BOOL res = ActivateActCtx(result, &lpCookie);
+}
 bool isNE(const char* file)
 {
 	PIMAGE_DOS_HEADER EXE = (PIMAGE_DOS_HEADER)file;

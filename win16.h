@@ -51,5 +51,6 @@ typedef struct
 } segment;
 #define WIN16_CALL 0xF7
 void win16_call_module();
+void enable_visualstyle(char *path);
 #define __WIN16__H__
 #endif

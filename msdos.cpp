@@ -527,7 +527,10 @@ int main(int argc, char *argv[], char *envp[])
 	BOOL bSuccess;
 	
 	for(int i = 1; i < argc; i++) {
-		if(_strnicmp(argv[i], "-e", 2) == 0) {
+		if (strcmp(argv[i], "-enablevs") == 0) {//+OTVDM
+			enable_visualstyle(argv[0]);
+			arg_offset++;
+		}else if (_strnicmp(argv[i], "-e", 2) == 0) {
 			standard_env = 1;
 			arg_offset++;
 		} else if(_strnicmp(argv[i], "-v", 2) == 0) {
@@ -536,7 +539,8 @@ int main(int argc, char *argv[], char *envp[])
 				minor_version = (argv[i][4] - '0') * 10 + (argv[i][5] - '0');
 			}
 			arg_offset++;
-		} else {
+		}
+		else {
 			break;
 		}
 	}
