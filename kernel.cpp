@@ -101,6 +101,14 @@ INT16 GetModuleFileName16(HINSTANCE16 hModule, LPSTR lpFileName, INT16 nSize)
 {
 	return 0;
 }
+//58
+INT16 GetProfileString16(LPCSTR lpSect, LPCSTR lpKey, LPCSTR lpDefault, LPSTR lpReturn, INT16 nSize)
+{
+	NOTIMPL("GetProfileString(\"%s\",\"%s\",\"%s\",0x%X,%d)\n", lpSect, lpKey, lpDefault, lpReturn, nSize);
+	if (nSize)
+		*lpReturn = '\0';
+	return 0;
+}
 //ÉåÉWÉXÉ^ï‘Çµ
 //91
 void InitTask16()

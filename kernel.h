@@ -10,6 +10,8 @@ LPVOID16 GlobalLock16(HGLOBAL16 hMem);
 BOOL16 WaitEvent16(HTASK16 hTask);
 //49
 INT16 GetModuleFileName16(HINSTANCE16 hModule, LPSTR lpFileName,INT16 nSize);
+//58
+INT16 GetProfileString16(LPCSTR lpSect, LPCSTR lpKey, LPCSTR lpDefault, LPSTR lpReturn, INT16 nSize);
 //ÉåÉWÉXÉ^ï‘Çµ
 //91
 void InitTask16();

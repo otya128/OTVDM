@@ -7,9 +7,33 @@ UINT16 InitApp16(HINSTANCE16 hInstance)
 {
 	return TRUE;//‚È‚ñ‚©
 }
+//6
 void PostQuitMessage16(INT16 nExitCode)
 {
 	PostQuitMessage(nExitCode);
+}
+void RECTToRECT16(RECT *from, RECT16 *to)
+{
+	to->left = (INT16)from->left;
+	to->top = (INT16)from->top;
+	to->right = (INT16)from->right;
+	to->bottom = (INT16)from->bottom;
+}
+//32
+void GetWindowRect16(HWND16 hWnd, RECT16 *RectPtr)
+{
+	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
+	RECT rect32;
+	GetWindowRect(hWnd32, &rect32);
+	RECTToRECT16(&rect32, RectPtr);
+}
+//33
+void GetClientRect16(HWND16 hWnd, RECT16 *RectPtr)
+{
+	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
+	RECT rect32;
+	GetClientRect(hWnd32, &rect32);
+	RECTToRECT16(&rect32, RectPtr);
 }
 //41
 HWND16 CreateWindow16(LPCSTR lpszClassName, LPCSTR lpszWindowName, DWORD dwStyle,
@@ -218,4 +242,14 @@ LONG16 DispatchMessage16(const MSG16 *lpMsg)
 	msg32.pt.x = lpMsg->pt.x;
 	msg32.pt.y = lpMsg->pt.y;
 	return DispatchMessageA(&msg32);
+}
+//135
+LONG16 GetWindowLong16(HWND16 hWnd, INT16 ByteOffset)
+{
+	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
+	if (ByteOffset == GWL_WNDPROC)
+	{
+		hWnd = hWnd;
+	}
+	return GetWindowLongA(hWnd32, ByteOffset);
 }

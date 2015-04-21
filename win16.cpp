@@ -1,6 +1,7 @@
 #include "win16.h"
 #include "kernel.h"
 #include "user.h"
+//àÍâûêVÇµÇ¢APIÇæÇµíºê⁄åƒÇŒÇ»Ç¢ÇŸÇ§Ç™Ç¢Ç¢Ç©Ç‡ÇµÇÍÇ»Ç¢?
 void enable_visualstyle(char *path)
 {
 	ACTCTXA actctx = { 0 };
@@ -198,6 +199,19 @@ void _GetModuleFileName16()
 	pascal_result_int16(GetModuleFileName16(hInstance, (LPSTR)FARPTRToPTR32(lpFileName), nSize));
 	i80286_far_return_wrap(0, 8);
 }
+//58
+//INT16 GetProfileString16(LPCSTR lpSect, LPCSTR lpKey, LPCSTR lpDefault, LPSTR lpReturn, INT16 nSize)
+void _GetProfileString16()
+{
+	int argc = 0;
+	INT16 nSize = get_int16_argex(&argc);
+	char *lpReturn = (char*)FARPTRToPTR32(get_int32_argex(&argc));
+	char *lpDefault = (char*)FARPTRToPTR32(get_int32_argex(&argc));
+	char *lpKey = (char*)FARPTRToPTR32(get_int32_argex(&argc));
+	char *lpSect = (char*)FARPTRToPTR32(get_int32_argex(&argc));
+	pascal_result_int16(GetProfileString16(lpSect, lpKey, lpDefault, lpReturn, nSize));
+	i80286_far_return_wrap(0, argc);
+}
 void _InitTask16()
 {
 	InitTask16();
@@ -283,6 +297,24 @@ void _PostQuitMessage16()
 	i80286_far_return_wrap(0, 2);
 	PostQuitMessage16(nExitCode);
 }
+//32
+void _GetWindowRect16()
+{
+	int argc = 0;
+	DWORD lprect = get_int32_argex(&argc);
+	HWND16 hwnd = get_int16_argex(&argc);
+	GetWindowRect16(hwnd, (RECT16*)FARPTRToPTR32(lprect));
+	i80286_far_return_wrap(0, argc);
+}
+//33
+void _GetClientRect16()
+{
+	int argc = 0;
+	DWORD lprect = get_int32_argex(&argc);
+	HWND16 hwnd = get_int16_argex(&argc);
+	GetClientRect16(hwnd, (RECT16*)FARPTRToPTR32(lprect));
+	i80286_far_return_wrap(0, argc);
+}
 DWORD global_stack = 0xE0000;
 #define GPUSH(val)               { WriteByte(((global_stack) & AMASK), val); global_stack += 1;}
 DWORD i86_galloca_ptr(void *ptr, WORD size)
@@ -351,8 +383,16 @@ void _GetMessage16()
 void _DispatchMessage16()
 {
 	MSG16* msg = (MSG16*)FARPTRToPTR32(*get_int32_arg(0));
-	//pascal_result_int32
-		(DispatchMessage16(msg));
+	pascal_result_int32(DispatchMessage16(msg));
+	i80286_far_return_wrap(0, 4);
+}
+//135
+void _GetWindowLong16()
+{
+	int argc = 0;
+	INT16 off = get_int16_argex(&argc);
+	HWND16 hwnd = get_int16_argex(&argc);
+	pascal_result_int32(GetWindowLong16(hwnd, off));
 	i80286_far_return_wrap(0, 4);
 }
 void _GetStockObject16()
@@ -365,15 +405,19 @@ int win16_init()
 {
 	kernel_table[30] = _WaitEvent16;
 	kernel_table[49] = _GetModuleFileName16;
+	kernel_table[58] = _GetProfileString16;
 	kernel_table[91] = _InitTask16;
 	user_table[1] = _MessageBox16;
 	user_table[5] = _InitApp16;
 	user_table[6] = _PostQuitMessage16;
+	user_table[32] = _GetWindowRect16;
+	user_table[33] = _GetClientRect16;
 	user_table[41] = _CreateWindow16;
 	user_table[57] = _RegisterClass16;
 	user_table[107] = _DefWindowProc16;
 	user_table[108] = _GetMessage16;
 	user_table[114] = _DispatchMessage16;
+	user_table[135] = _GetWindowLong16;
 	gdi_table[87] = _GetStockObject16;
 	//init HANDLE16array
 	for (int i = 1; i < 65536; i++)
