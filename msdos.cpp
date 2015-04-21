@@ -5830,7 +5830,6 @@ void msdos_syscall(unsigned num)
 		break;
 	case WIN16_CALL:
 		win16_call_module();
-		i80286_retf();
 		break;
 	default:
 //		fatalerror("int %02xh (ax=%04xh bx=%04xh cx=%04xh dx=%04x)\n", num, REG16(AX), REG16(BX), REG16(CX), REG16(DX));
@@ -6167,6 +6166,10 @@ void hardware_run()
 			ops = 0;
 		}
 	}
+}
+UINT16 i80286_far_return_wrap(int iret, int bytes)
+{
+	return i80286_far_return(iret, bytes);
 }
 void cpu_exexute_call_wrap()
 {

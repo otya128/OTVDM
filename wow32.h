@@ -127,6 +127,7 @@ typedef UINT16 WPARAM16;
 typedef INT32 LPARAM16;
 typedef INT32 LRESULT16;
 typedef INT32 LONG16;
+#pragma pack(push)
 #pragma pack(1)
 typedef struct
 {
@@ -167,7 +168,15 @@ typedef struct {
 	LPCSTR16   lpszClass;
 	DWORD     dwExStyle;
 } CREATESTRUCT16;
-#pragma pack()
+typedef struct
+{
+	WORD offset;
+	WORD length;
+	segmentflag flag;
+	WORD minsize;
+	HGLOBAL16 hMem;
+} segmenttable_t;
+#pragma pack(pop)
 //ïœä∑ä÷êî
 HANDLE16 AllocHANDLE16();
 HANDLE HANDLE16ToHANDLE(HANDLE16 handle16);

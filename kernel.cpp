@@ -2,8 +2,8 @@
 #include "wow32.h"
 #include "kernel.h"
 #include <vector>
-DWORD win16_heap = 0x70000;
-DWORD win16_heap_size = 0xE0000 - 0x70000;
+DWORD win16_heap = 0x10000;
+DWORD win16_heap_size = 0xE0000 - 0x10000;
 typedef struct
 {
 	DWORD pos;
@@ -20,14 +20,12 @@ int kernel_unused = init_kernel();
 //GlobalAllocしたあとに
 //GlobalLockでアドレス取得
 //15
-const BYTE GLOBALALLOC_HEADSIZE = 4;
 HGLOBAL16 GlobalAlloc16(UINT16 flags, DWORD size)
 {
 	int allocblock = -1;
 	bool just = false;//ちょうど16byte境界にあったか
 	DWORD align_pos;
 	int diff = 0;
-	size += GLOBALALLOC_HEADSIZE;//ヘッダ
 	if ((size >> 4) << 4 != size)
 		size = ((size + 16) >> 4) << 4;
 	for (unsigned int i = 0; i < globalalloc.size(); i++)
@@ -79,7 +77,7 @@ HGLOBAL16 GlobalAlloc16(UINT16 flags, DWORD size)
 	dprintf("GLOBALalloc memory addr=%08X,size=%08X,flags=%X\n", allocpos, size, flags);
 	HANDLE16 mem = AllocHANDLE16();
 	HANDLE16Data *data = gethandledata(mem);
-	data->data = allocpos + GLOBALALLOC_HEADSIZE;
+	data->data = allocpos << 12;
 	return mem;
 }
 //18
@@ -109,5 +107,6 @@ void InitTask16()
 {
 	HTASK16 task = GetCurrentTask16();
 	HANDLE16Data *data = gethandledata(task);
-	REG16(AX) = 1;//正常
+	REG16(AX) = 1;//正常v
+	REG16(SI) = 0;//prev instance
 }

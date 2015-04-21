@@ -64,15 +64,20 @@ typedef struct
 {
 
 } INSTANCE16;
+UINT16 i80286_far_return_wrap(int iret, int bytes);
 void win16_call_module()
 {
 	WORD module = *(WORD*)(mem + m_pc);
 	WORD ordinal = *(WORD*)(mem + m_pc + 2);
+	NOTIMPL("call %s function:%d\n", modtable[module], ordinal);
 	//NOTIMPL("undefined %s function:%d\n", modtable[module], ordinal);
 	if (!strcmp(modtable[module], "KERNEL"))
 	{
-		kernel_table[ordinal]();
-		return;
+		if (kernel_table[ordinal])
+		{
+			kernel_table[ordinal]();
+			return;
+		}
 	}
 	if (!strcmp(modtable[module], "USER"))
 	{
@@ -91,6 +96,7 @@ void win16_call_module()
 		}
 	}
 	NOTIMPL("undefined %s function:%d\n", modtable[module], ordinal);
+	i80286_far_return_wrap(0, 0);
 }
 //呼び出し規約pascalでの返り値
 //16bit以内の場合AX//8bitの場合は知らない
@@ -154,6 +160,7 @@ char *get_stringex(int *n)
 void _WaitEvent16()
 {
 	pascal_result_int16(WaitEvent16(get_int16_argnp(0)));
+	i80286_far_return_wrap(0, 2);
 }
 void _GetModuleFileName16()
 {
@@ -161,10 +168,12 @@ void _GetModuleFileName16()
 	DWORD lpFileName = *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 6) & 0xffff))));
 	HINSTANCE16 hInstance = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 10) & 0xffff))));
 	pascal_result_int16(GetModuleFileName16(hInstance, (LPSTR)FARPTRToPTR32(lpFileName), nSize));
+	i80286_far_return_wrap(0, 8);
 }
 void _InitTask16()
 {
 	InitTask16();
+	i80286_far_return_wrap(0, 0);
 }
 #include <map>
 #include <string>
@@ -231,11 +240,13 @@ void _MessageBox16()
 	WORD uType = *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4) & 0xffff))));
 	MessageBoxA((HWND)HANDLE16ToHANDLE(hWnd), (LPCSTR)FARPTRToPTR32(lpText), (LPCSTR)FARPTRToPTR32(lpCaption), uType);
 	REG16(AX) = 1;
+	i80286_far_return_wrap(0, 12);
 }
 //5
 void _InitApp16()
 {
 	HINSTANCE16 hInstance = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4) & 0xffff))));
+	i80286_far_return_wrap(0, 2);
 	REG16(AX) = TRUE;
 }
 //6
@@ -243,6 +254,7 @@ void _PostQuitMessage16()
 {
 	WORD nExitCode = *get_int16_arg(0);
 	PostQuitMessage(nExitCode);
+	i80286_far_return_wrap(0, 2);
 	REG16(AX) = 1;
 }
 #define AMASK  m_amask
@@ -271,12 +283,13 @@ void i86_gfree_ptr(WORD size)
 {
 	global_stack += size;
 }
+int _a_ = 0;
 LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
 	HWND16 hwnd16 = HANDLEToHANDLE16((HANDLE)hwnd);
 	if (hwnd16)
 	{
-		dprintf("wpp:%d,%X\n", inging, msg, msg, wp, lp);
+		//dprintf("wpp:%d,%X\n", inging, msg, msg, wp, lp);
 		char name[256];
 		//dprintf("%X\t", msg, msg, wp, lp);
 		GetClassNameA(hwnd, name, sizeof(name));
@@ -330,6 +343,9 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			case WM_NCPAINT:
 				wp = HANDLEToHANDLE16((HANDLE)wp);
 				break;
+			case WM_SETICON:
+				lp = HANDLEToHANDLE16((HANDLE)lp);
+				break;
 			}
 			PUSH(hwnd16);
 			PUSH(msg);
@@ -339,11 +355,12 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			PUSH(cs);
 			PUSH(ip);
 			m_pc = (m_base[CS] + offset)&AMASK;
-			//dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X,cs:%X,ip:%X\n",hwnd16,msg,wp,lp,cs,ip);
+			dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X,cs:%X,ip:%X\n",hwnd16,msg,wp,lp,cs,ip);
 				//CreateWindowの中でも呼ばれるので強引に
 				//メッセージを溜めるようにした方がいいかもしれない
 			while (m_regs.w[SP] < stk)
 			{
+				_a_++;//129
 				//dprintf("%X\t", m_pc, msg, wp, lp, cs, ip);
 				cpu_exexute_call_wrap();
 			}
@@ -356,7 +373,7 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	return DefWindowProc(hwnd, msg, wp, lp);
 }
 //41
-#define CW_USEDEFAULT16   ((short)0x8000)
+#define CW_USEDEFAULT16   ((INT16)0x8000)
 void _CreateWindow16()
 {
 	int argc = 0;
@@ -372,9 +389,21 @@ void _CreateWindow16()
 	char *windowName = get_stringex(&argc);
 	char *className = get_stringex(&argc);
 	inging = true;
-	HWND hWnd = CreateWindowExA(0, className, windowName, style, x == CW_USEDEFAULT16 ? CW_USEDEFAULT : x, y == CW_USEDEFAULT16 ? CW_USEDEFAULT : y, width, height, (HWND)HANDLE16ToHANDLE(parent), (HMENU)HANDLE16ToHANDLE(menu), (HINSTANCE)HANDLE16ToHANDLE(instance), (LPVOID)data);
+	HWND hWnd = CreateWindowExA(0,
+		className,
+		windowName,
+		style,
+		x == CW_USEDEFAULT16 ? CW_USEDEFAULT : x,
+		y == CW_USEDEFAULT16 ? CW_USEDEFAULT : y,
+		width == CW_USEDEFAULT16 ? CW_USEDEFAULT : width,
+		height == CW_USEDEFAULT16 ? CW_USEDEFAULT : height,
+		(HWND)HANDLE16ToHANDLE(parent),
+		(HMENU)HANDLE16ToHANDLE(menu),
+		(HINSTANCE)HANDLE16ToHANDLE(instance),
+		(LPVOID)data);
 	inging = false;
 	REG16(AX) = HANDLEToHANDLE16(hWnd);
+	i80286_far_return_wrap(0, argc);
 }
 void _RegisterClass16()
 {
@@ -395,12 +424,13 @@ void _RegisterClass16()
 	wprocmap[wca.lpszClassName] = wc->lpfnWndProc;
 	ATOM atom = RegisterClassExA(&wca);
 	REG16(AX) = atom;
+	i80286_far_return_wrap(0, 4);
 }
 //107
 void _DefWindowProc16()
 {
 	int argc = 0;
-	LPARAM16 lp = get_int32_argex(&argc);
+	LPARAM lp = get_int32_argex(&argc);
 	WPARAM wp = get_int16_argex(&argc);
 	UINT16 msg = get_int16_argex(&argc);
 	HWND16 hwnd = get_int16_argex(&argc);
@@ -432,6 +462,8 @@ void _DefWindowProc16()
 	case WM_NCPAINT:
 		wp = (WPARAM)HANDLE16ToHANDLE(wp);
 		break;
+	case WM_SETICON:
+		lp = (LPARAM)HANDLE16ToHANDLE(lp);
 	}
 	//TODO:result
 	dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X\n", hwnd, msg, wp, lp);
@@ -440,6 +472,7 @@ void _DefWindowProc16()
 	REG16(AX) = res;
 	REG16(DX) = res >> 16;
 	inging = 0;
+	i80286_far_return_wrap(0, argc);
 }
 void _GetMessage16()
 {
@@ -466,6 +499,7 @@ void _GetMessage16()
 	msg->time = msg32.time;
 	msg->pt.x = msg32.pt.x;
 	msg->pt.y = msg32.pt.y;
+	i80286_far_return_wrap(0, argc);
 }
 //114
 //返り血不明
@@ -481,10 +515,12 @@ void _DispatchMessage16()
 	msg32.pt.x = msg->pt.x;
 	msg32.pt.y = msg->pt.y;
 	DispatchMessageA(&msg32);
+	i80286_far_return_wrap(0, 4);
 }
 void _GetStockObject16()
 {
 	REG16(AX) = HANDLEToHANDLE16(GetStockObject(*get_int16_arg(0)));
+	i80286_far_return_wrap(0, 2);
 }
 //pascalは順番にスタックに積む
 int win16_init()
@@ -527,14 +563,37 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 	*sp = 0xFFFF;//tekitou
 	*ss = 0x3000;
 	//最初の16?byteは予約
-	DWORD startseg = 0x10010;
-	DWORD seg = startseg;
+	//DWORD startseg = 0x10010;
+	//DWORD seg =  startseg;
 	DWORD func_jmp = 0x70000;
 	WORD func = 0;
+	HGLOBAL16 taskmem = GlobalAlloc16(0, sizeof(TASK16) + sizeof(segmenttable_t) * NE->ne_cseg);
+	char *taskptr = (char*)FARPTRToPTR32(GlobalLock16(taskmem));
+	TASK16 *task = (TASK16*)taskptr;
+	segmenttable_t *hsegtable = (segmenttable_t*)(task + sizeof(TASK16));
 	for (int i = 0; i < NE->ne_cseg; i++)
 	{
+		hsegtable[i].offset = segmenttable[i].offset;
+		hsegtable[i].length = segmenttable[i].length;
+		hsegtable[i].flag = segmenttable[i].flag;
+		hsegtable[i].minsize = segmenttable[i].minsize;
+	}
+	for (int i = 0; i < NE->ne_cseg; i++)
+	{
+		HGLOBAL16 hMem = GlobalAlloc16(0, segmenttable[i].length);
+		hsegtable[i].hMem = hMem;
+		//gethandledata(hMem)->data = 0x10000000 * (i+1);
+		LPVOID16 seg1 = GlobalLock16(hMem);
+		BYTE *segmem = (BYTE*)FARPTRToPTR32(seg1);
 		int offset = segmenttable[i].offset << NE->ne_align;
-		memcpy(mem + seg, file + offset, segmenttable[i].length);
+		memcpy(segmem, file + offset, segmenttable[i].length);
+	}
+	for (int i = 0; i < NE->ne_cseg; i++)
+	{
+		HGLOBAL16 hMem = hsegtable[i].hMem;
+		LPVOID16 seg1 = GlobalLock16(hMem);
+		BYTE *segmem = (BYTE*)FARPTRToPTR32(seg1);
+		int offset = segmenttable[i].offset << NE->ne_align;
 		WORD tablelen = *(WORD*)(file + offset + segmenttable[i].length);
 		reloctable *table = (reloctable*)(file + offset + segmenttable[i].length + sizeof(WORD));
 		//reloc
@@ -574,7 +633,7 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 				dprintf("IMPORTORDINAL module=%s,ordinal=%d\n", modtable[table[j].importordinal.module - 1], table[j].importordinal.ordinal);
 				break;
 			case INTERNALREF:
-				addr = (table[j].internalref.segnum) * 0x10000 + table[j].internalref.offset;
+				addr = GlobalLock16(hsegtable[table[j].internalref.segnum - 1].hMem) + table[j].internalref.offset;
 				//addr |= 0x00010000;
 				dprintf("INTERNALREF segnum=%d,offset=0x%X,addr=%04X:%04X\n", table[j].internalref.segnum - 1, table[j].internalref.offset, (table[j].internalref.segnum) * 0x1000 , table[j].internalref.offset);
 				break;
@@ -594,22 +653,22 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 				NOTIMPL("reloctype:LOBYTE\n");
 				break;
 			case SEGMENT:
-				*(WORD*)(mem + seg + table[j].offset) = (addr & 0xFFFF0000) >> 4;
+				*(WORD*)(segmem + table[j].offset) = (addr & 0xFFFF0000) >> 16;
 				break;
 			case FAR_ADDR:
-				*(DWORD*)(mem + seg + table[j].offset) = addr;
+				*(DWORD*)(segmem + table[j].offset) = addr;
 				//*(WORD*)(mem + seg + table[j].offset) = addr & 0xFFFF;
 				//*(WORD*)(mem + seg + table[j].offset + 2) = (addr & 0xFFFF0000)>>4;
 				break;
 			case OFFSET:
-				*(WORD*)(mem + seg + table[j].offset) = addr;
+				*(WORD*)(segmem + table[j].offset) = addr;
 				break;
 			default:
 				NOTIMPL("reloctype:default\n");
 				break;
 			}
 		}
-		seg += 0x10000;
+		//seg += 0x10000;
 		dprintf("load segment %X\n", i);
 	}
 	//toriaezu
@@ -617,8 +676,8 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 	*di = 0x0000;
 	*ds = 0x2000;
 	*di = 0x0000;
-	*ds = NE->ne_autodata * 0x1000 + 1;
-	TASK16 task;
+	*ds = (GlobalLock16(hsegtable[NE->ne_autodata - 1].hMem) >> 16);//NE->ne_autodata * 0x1000 + 1;
+	*cs = (GlobalLock16(hsegtable[(NE->ne_csip >> 16) - 1].hMem) >> 16);
 	/*
 	for (int i = 0; i < NE->ne_cmod; i++)
 	{

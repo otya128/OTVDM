@@ -214,8 +214,6 @@ static CPU_EXECUTE( i80286 )
 			if (PM && ((m_pc-m_base[CS]) > m_limit[CS]))
 				throw TRAP(GENERAL_PROTECTION_FAULT, m_sregs[CS] & ~3);
 			m_prevpc = m_pc;
-			if (m_pc == 0x1020E)
-				dprintf("A");
 			TABLE286 // call instruction
 		}
 		catch (UINT32 e)
