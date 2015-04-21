@@ -612,6 +612,12 @@ int main(int argc, char *argv[], char *envp[])
 	delete key_buf_scan;
 	
 //	SetConsoleTextAttribute(hStdout, csbi.wAttributes);
+	if (!is_started_from_command_prompt()) {
+		fprintf(stderr, "\nStart this program from a command prompt!\n\nHit any key to quit...");
+		while (!_kbhit()) {
+			Sleep(10);
+		}
+	}
 	return(retval);
 }
 

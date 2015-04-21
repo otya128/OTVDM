@@ -15,6 +15,8 @@ extern UINT16 m_eo; /* HJB 12/13/98 effective offset of the address (before segm
 extern UINT8 m_ea_seg;   /* effective segment of the address */
 extern UINT32  m_base[4];
 extern UINT16  m_sregs[4];
+extern UINT16  m_limit[4];
+extern UINT8 m_rights[4];
 #if defined(HAS_I386)
 #define SREG(x)				m_sreg[x].selector
 #define SREG_BASE(x)			m_sreg[x].base
@@ -61,6 +63,15 @@ const endianness_t ENDIANNESS_NATIVE = ENDIANNESS_BIG;
 #endif
 
 #include "mame/emu/cpu/i86/i86priv.h"
+
+#define AMASK  m_amask
+// offsets and addresses are 32-bit (for now...)
+typedef UINT32	offs_t;
+void write_word(offs_t byteaddress, UINT16 data);
+void write_byte(offs_t byteaddress, UINT8 data);
+#define write_word_unaligned write_word
+void cpu_exexute_call_wrap();
+
 typedef enum : BYTE
 {
 	SOURCE_MASK = 0xF,

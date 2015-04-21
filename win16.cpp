@@ -1,5 +1,6 @@
 #include "win16.h"
 #include "kernel.h"
+#include "user.h"
 bool isNE(const char* file)
 {
 	PIMAGE_DOS_HEADER EXE = (PIMAGE_DOS_HEADER)file;
@@ -238,35 +239,23 @@ void _MessageBox16()
 	DWORD lpText = *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 10) & 0xffff))));
 	DWORD lpCaption = *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 6) & 0xffff))));
 	WORD uType = *(DWORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4) & 0xffff))));
-	MessageBoxA((HWND)HANDLE16ToHANDLE(hWnd), (LPCSTR)FARPTRToPTR32(lpText), (LPCSTR)FARPTRToPTR32(lpCaption), uType);
-	REG16(AX) = 1;
+	pascal_result_int16(MessageBox16(hWnd, (LPCSTR)FARPTRToPTR32(lpText), (LPCSTR)FARPTRToPTR32(lpCaption), uType));
 	i80286_far_return_wrap(0, 12);
 }
 //5
 void _InitApp16()
 {
 	HINSTANCE16 hInstance = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 4) & 0xffff))));
+	pascal_result_int16(InitApp16(hInstance));
 	i80286_far_return_wrap(0, 2);
-	REG16(AX) = TRUE;
 }
 //6
 void _PostQuitMessage16()
 {
 	WORD nExitCode = *get_int16_arg(0);
-	PostQuitMessage(nExitCode);
 	i80286_far_return_wrap(0, 2);
-	REG16(AX) = 1;
+	PostQuitMessage16(nExitCode);
 }
-#define AMASK  m_amask
-// offsets and addresses are 32-bit (for now...)
-typedef UINT32	offs_t;
-void write_word(offs_t byteaddress, UINT16 data);
-void write_byte(offs_t byteaddress, UINT8 data);
-#define write_word_unaligned write_word
-extern UINT16  m_limit[4];
-extern UINT8 m_rights[4];
-char inging = false;
-void cpu_exexute_call_wrap();
 DWORD global_stack = 0xE0000;
 #define GPUSH(val)               { WriteByte(((global_stack) & AMASK), val); global_stack += 1;}
 DWORD i86_galloca_ptr(void *ptr, WORD size)
@@ -283,97 +272,8 @@ void i86_gfree_ptr(WORD size)
 {
 	global_stack += size;
 }
-int _a_ = 0;
-LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
-{
-	HWND16 hwnd16 = HANDLEToHANDLE16((HANDLE)hwnd);
-	if (hwnd16)
-	{
-		//dprintf("wpp:%d,%X\n", inging, msg, msg, wp, lp);
-		char name[256];
-		//dprintf("%X\t", msg, msg, wp, lp);
-		GetClassNameA(hwnd, name, sizeof(name));
-		std::map<std::string, DWORD>::iterator itr;
-		if ((itr = wprocmap.find(name)) != wprocmap.end())
-		{/*
-			if (inging == 2)
-			{
-				inging = 3;
-				return DefWindowProc(hwnd, msg, wp, lp);
-			}*///if (inging) inging = 2;
-			WORD cs, ip;
-			ip = m_pc - m_base[SREGS::CS];
-			cs = m_sregs[CS];
-			UINT16 selector = itr->second >> 16, offset = (UINT16)itr->second;
-			m_sregs[CS] = selector;
-			m_base[CS] = selector << 4;
-			m_rights[CS] = 0x9a;
-			m_limit[CS] = 0xffff;
-			UINT16 stk = m_regs.w[SP];
-			int stkcnt = 0;
-			switch (msg)
-			{
-			case WM_CREATE:
-			{
-				//lparam=LPCREATESTRUCT
-				LPCREATESTRUCTA create = (LPCREATESTRUCTA)lp;
-				CREATESTRUCT16 create16;//スタック上に確保
-				create16.lpCreateParams = (LPVOID16)create->lpCreateParams;
-				create16.hInstance = HANDLEToHANDLE16(create->hInstance);
-				create16.hMenu = HANDLEToHANDLE16(create->hMenu);
-				create16.hwndParent = HANDLEToHANDLE16(create->hwndParent);
-				create16.cy = (INT16)create->cy;
-				create16.cx = (INT16)create->cx;
-				create16.y = (INT16)create->y;
-				create16.x = (INT16)create->x;
-				create16.style = (LONG32)create->style;
-				//TODO:この値をずっと保持する場合互換性が保たれない
-				create16.lpszName = i86_galloca_ptr((void*)create->lpszName, strlen(create->lpszName) + 2);
-				stkcnt += strlen(create->lpszName) + 2;
-				create16.lpszClass = i86_galloca_ptr((void*)create->lpszClass, strlen(create->lpszClass) + 2);
-				stkcnt += strlen(create->lpszClass) + 2;
-				create16.dwExStyle = create->dwExStyle;
-				lp = i86_galloca_ptr(&create16, sizeof(CREATESTRUCT16));
-				stkcnt += sizeof(CREATESTRUCT16);
-			}
-			break;
-			case WM_SETCURSOR:
-			case WM_MOUSEACTIVATE:
-			case WM_ERASEBKGND:
-			case WM_NCPAINT:
-				wp = HANDLEToHANDLE16((HANDLE)wp);
-				break;
-			case WM_SETICON:
-				lp = HANDLEToHANDLE16((HANDLE)lp);
-				break;
-			}
-			PUSH(hwnd16);
-			PUSH(msg);
-			PUSH(wp);
-			PUSH(lp >> 16);
-			PUSH(lp & 0xFFFF);
-			PUSH(cs);
-			PUSH(ip);
-			m_pc = (m_base[CS] + offset)&AMASK;
-			dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X,cs:%X,ip:%X\n",hwnd16,msg,wp,lp,cs,ip);
-				//CreateWindowの中でも呼ばれるので強引に
-				//メッセージを溜めるようにした方がいいかもしれない
-			while (m_regs.w[SP] < stk)
-			{
-				_a_++;//129
-				//dprintf("%X\t", m_pc, msg, wp, lp, cs, ip);
-				cpu_exexute_call_wrap();
-			}
-			i86_gfree_ptr(stkcnt);
-			//dprintf("%X\n", m_pc, msg, wp, lp, cs, ip);
-			return REG16(AX) | REG16(DX) << 16;
-		}
-	}
-	dprintf("wpp:%d,%X\n", inging, msg, msg, wp, lp);
-	return DefWindowProc(hwnd, msg, wp, lp);
-}
+
 //41
-#define CW_USEDEFAULT16   ((INT16)0x8000)
 void _CreateWindow16()
 {
 	int argc = 0;
@@ -388,42 +288,15 @@ void _CreateWindow16()
 	DWORD style = get_int32_argex(&argc);
 	char *windowName = get_stringex(&argc);
 	char *className = get_stringex(&argc);
-	inging = true;
-	HWND hWnd = CreateWindowExA(0,
-		className,
-		windowName,
-		style,
-		x == CW_USEDEFAULT16 ? CW_USEDEFAULT : x,
-		y == CW_USEDEFAULT16 ? CW_USEDEFAULT : y,
-		width == CW_USEDEFAULT16 ? CW_USEDEFAULT : width,
-		height == CW_USEDEFAULT16 ? CW_USEDEFAULT : height,
-		(HWND)HANDLE16ToHANDLE(parent),
-		(HMENU)HANDLE16ToHANDLE(menu),
-		(HINSTANCE)HANDLE16ToHANDLE(instance),
-		(LPVOID)data);
-	inging = false;
-	REG16(AX) = HANDLEToHANDLE16(hWnd);
+	pascal_result_int16(CreateWindow16(className, windowName,
+		style, x, y, width, height, parent, menu,
+		instance, data));
 	i80286_far_return_wrap(0, argc);
 }
 void _RegisterClass16()
 {
 	WNDCLASS16 *wc = (WNDCLASS16*)FARPTRToPTR32(*get_int32_arg(0));
-	WNDCLASSEXA wca;
-	wca.cbSize = sizeof(wca);
-	wca.style = wc->style;
-	wca.lpfnWndProc = Win16WndProc;
-	wca.hInstance = (HINSTANCE)HANDLE16ToHANDLE(wc->hInstance);
-	wca.cbClsExtra = wc->cbClsExtra;
-	wca.cbWndExtra = wc->cbWndExtra;
-	wca.hIcon = (HICON)HANDLE16ToHANDLE(wc->hIcon);
-	wca.hCursor = (HCURSOR)HANDLE16ToHANDLE(wc->hCursor);
-	wca.hbrBackground = (HBRUSH)HANDLE16ToHANDLE(wc->hbrBackground);
-	wca.lpszMenuName = (LPCSTR)FARPTRToPTR32(wc->lpszMenuName);
-	wca.lpszClassName = (LPCSTR)FARPTRToPTR32(wc->lpszClassName);
-	wca.hIconSm = NULL;
-	wprocmap[wca.lpszClassName] = wc->lpfnWndProc;
-	ATOM atom = RegisterClassExA(&wca);
-	REG16(AX) = atom;
+	pascal_result_int16(RegisterClass16(wc));
 	i80286_far_return_wrap(0, 4);
 }
 //107
@@ -434,44 +307,7 @@ void _DefWindowProc16()
 	WPARAM wp = get_int16_argex(&argc);
 	UINT16 msg = get_int16_argex(&argc);
 	HWND16 hwnd = get_int16_argex(&argc);
-	HWND hwnd32 = (HWND)HANDLE16ToHANDLE(hwnd);
-	switch (msg)
-	{
-	case WM_CREATE:
-	{
-		CREATESTRUCT16 *create16 = (CREATESTRUCT16*)FARPTRToPTR32(lp);
-		CREATESTRUCTA create;
-		create.lpCreateParams = (LPVOID)create16->lpCreateParams;
-		create.hInstance = (HINSTANCE)HANDLE16ToHANDLE(create16->hInstance);
-		create.hMenu = (HMENU)HANDLE16ToHANDLE(create16->hMenu);
-		create.hwndParent = (HWND)HANDLE16ToHANDLE(create16->hwndParent);
-		create.cy = create16->cy;
-		create.cx = create16->cx;
-		create.y = create16->y;
-		create.x = create16->x;
-		create.style = (LONG32)create16->style;
-		create.lpszName = (LPCSTR)FARPTRToPTR32(create16->lpszName);
-		create.lpszClass = (LPCSTR)FARPTRToPTR32(create16->lpszClass);
-		create.dwExStyle = create16->dwExStyle;
-		lp = (LPARAM)&create;
-	}
-	break;
-	case WM_SETCURSOR:
-	case WM_MOUSEACTIVATE:
-	case WM_ERASEBKGND:
-	case WM_NCPAINT:
-		wp = (WPARAM)HANDLE16ToHANDLE(wp);
-		break;
-	case WM_SETICON:
-		lp = (LPARAM)HANDLE16ToHANDLE(lp);
-	}
-	//TODO:result
-	dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X\n", hwnd, msg, wp, lp);
-	inging = 2;
-	LRESULT16 res = DefWindowProcA(hwnd32, msg, wp, lp);
-	REG16(AX) = res;
-	REG16(DX) = res >> 16;
-	inging = 0;
+	pascal_result_int32(DefWindowProc16(hwnd, msg, wp, lp));
 	i80286_far_return_wrap(0, argc);
 }
 void _GetMessage16()
@@ -481,40 +317,15 @@ void _GetMessage16()
 	UINT16 first = get_int16_argex(&argc);
 	HWND16 hWnd = get_int16_argex(&argc);
 	DWORD lpMsg = get_int32_argex(&argc);
-	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
-	MSG16 *msg = (MSG16*)FARPTRToPTR32(lpMsg);
-	MSG msg32;
-/*	msg32.hwnd = (HWND)HANDLE16ToHANDLE(msg->hwnd);
-	msg32.message = msg->message;
-	msg32.wParam = msg->wParam;
-	msg32.lParam = msg->lParam;
-	msg32.time = msg->time;
-	msg32.pt.x = msg->pt.x;
-	msg32.pt.y = msg->pt.y;*/
-	REG16(AX) = GetMessageA(&msg32, hWnd32, first, last);
-	msg->hwnd = HANDLEToHANDLE16(msg32.hwnd);
-	msg->message = msg32.message;
-	msg->wParam = msg32.wParam;
-	msg->lParam = msg32.lParam;
-	msg->time = msg32.time;
-	msg->pt.x = msg32.pt.x;
-	msg->pt.y = msg32.pt.y;
+	pascal_result_int16(GetMessage16((MSG16*)FARPTRToPTR32(lpMsg), hWnd, first, last));
 	i80286_far_return_wrap(0, argc);
 }
 //114
-//返り血不明
 void _DispatchMessage16()
 {
 	MSG16* msg = (MSG16*)FARPTRToPTR32(*get_int32_arg(0));
-	MSG msg32;
-	msg32.hwnd = (HWND)HANDLE16ToHANDLE(msg->hwnd);
-	msg32.message = msg->message;
-	msg32.wParam = msg->wParam;
-	msg32.lParam = msg->lParam;
-	msg32.time = msg->time;
-	msg32.pt.x = msg->pt.x;
-	msg32.pt.y = msg->pt.y;
-	DispatchMessageA(&msg32);
+	//pascal_result_int32
+		(DispatchMessage16(msg));
 	i80286_far_return_wrap(0, 4);
 }
 void _GetStockObject16()
