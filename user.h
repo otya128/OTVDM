@@ -30,6 +30,8 @@ HWND16 CreateWindowEx16(DWORD dwExStyle, LPCSTR lpszClassName, LPCSTR lpszWindow
 	HINSTANCE16 hInstance, LPVOID16 lpCreateParams);
 //42
 BOOL16 ShowWindow16(HWND16 hWnd, INT16 nCmdShow);
+//53
+BOOL16 DestroyWindow16(HWND16 hWnd);
 //57
 ATOM16 RegisterClass16(const WNDCLASS16 *lpWndClass);
 //66

@@ -70,6 +70,12 @@ BOOL16 ShowWindow16(HWND16 hWnd, INT16 nCmdShow)
 	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
 	return ShowWindow(hWnd32, nCmdShow);
 }
+//53
+BOOL16 DestroyWindow16(HWND16 hWnd)
+{
+	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
+	return DestroyWindow(hWnd32);
+}
 #include <map>
 //‚Æ‚è‚ ‚¦‚¸
 //TODO:ATOMŽÀ‘•‚µ‚½‚¢

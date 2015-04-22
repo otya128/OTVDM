@@ -396,6 +396,14 @@ void _ShowWindow16()
 	pascal_result_int16(ShowWindow16(hWnd, nCmdShow));
 	i80286_far_return_wrap(0, argc);
 }
+//53
+void _DestroyWindow16()
+{
+	int argc = 0;
+	HWND16 hWnd = get_int16_argex(&argc);
+	pascal_result_int16(DestroyWindow16(hWnd));
+	i80286_far_return_wrap(0, argc);
+}
 //57
 void _RegisterClass16()
 {
@@ -534,6 +542,7 @@ int win16_init()
 	user_table[33] = _GetClientRect16;
 	user_table[41] = _CreateWindow16;
 	user_table[42] = _ShowWindow16;
+	user_table[53] = _DestroyWindow16;
 	user_table[57] = _RegisterClass16;
 	user_table[66] = _GetDC16;
 	user_table[68] = _ReleaseDC16;
