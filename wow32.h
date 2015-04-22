@@ -129,6 +129,7 @@ typedef HANDLE16 HCURSOR16;
 typedef HANDLE16 HBRUSH16;
 typedef HANDLE16 HMENU16;
 typedef HANDLE16 HGLOBAL16;
+typedef HANDLE16 HDC16;
 typedef unsigned short  BOOL16;
 typedef DWORD           SEGPTR;
 typedef DWORD           LPVOID16;
@@ -138,6 +139,7 @@ typedef UINT16 WPARAM16;
 typedef INT32 LPARAM16;
 typedef INT32 LRESULT16;
 typedef INT32 LONG16;
+typedef DWORD FARPROC16;
 #pragma pack(push)
 #pragma pack(1)
 typedef struct

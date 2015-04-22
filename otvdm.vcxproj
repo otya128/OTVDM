@@ -968,12 +968,14 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="gdi.cpp" />
     <ClCompile Include="kernel.cpp" />
     <ClCompile Include="msdos.cpp" />
     <ClCompile Include="user.cpp" />
     <ClCompile Include="win16.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="gdi.h" />
     <ClInclude Include="kernel.h" />
     <ClInclude Include="msdos.h" />
     <ClInclude Include="user.h" />

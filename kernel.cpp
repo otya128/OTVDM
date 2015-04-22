@@ -101,6 +101,17 @@ INT16 GetModuleFileName16(HINSTANCE16 hModule, LPSTR lpFileName, INT16 nSize)
 {
 	return 0;
 }
+//51
+FARPROC16 MakeProcInstance16(FARPROC16 lpProc, HINSTANCE16 hInst)
+{
+	NOTIMPL("MakeProcInstance(0x%X,0x%X)\n", lpProc, hInst);
+	return lpProc;
+}
+//52
+void FreeProcInstance16(FARPROC16 lpProc)
+{
+	NOTIMPL("FreeProcInstance(0x%X)\n", lpProc);
+}
 //58
 INT16 GetProfileString16(LPCSTR lpSect, LPCSTR lpKey, LPCSTR lpDefault, LPSTR lpReturn, INT16 nSize)
 {
@@ -117,4 +128,5 @@ void InitTask16()
 	HANDLE16Data *data = gethandledata(task);
 	REG16(AX) = 1;//ê≥èÌv
 	REG16(SI) = 0;//prev instance
+	REG16(DX) = SW_SHOW;///nCmdShow
 }

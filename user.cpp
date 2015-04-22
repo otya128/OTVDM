@@ -1,8 +1,10 @@
 #include "user.h"
+//1
 INT16 MessageBox16(HWND16 hWndParent, LPCSTR lpszMessage, LPCSTR lpszTitle, UINT16 uStyle)
 {
 	return MessageBoxA((HWND)HANDLE16ToHANDLE(hWndParent), lpszMessage, lpszTitle, uStyle);
 }
+//5
 UINT16 InitApp16(HINSTANCE16 hInstance)
 {
 	return TRUE;//‚È‚ñ‚©
@@ -61,6 +63,12 @@ HWND16 CreateWindowEx16(DWORD dwExStyle, LPCSTR lpszClassName, LPCSTR lpszWindow
 		(HINSTANCE)HANDLE16ToHANDLE(hInstance),
 		(LPVOID)lpCreateParams);
 	return HANDLEToHANDLE16(hWnd);
+}
+//42
+BOOL16 ShowWindow16(HWND16 hWnd, INT16 nCmdShow)
+{
+	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
+	return ShowWindow(hWnd32, nCmdShow);
 }
 #include <map>
 //‚Æ‚è‚ ‚¦‚¸
@@ -156,6 +164,7 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	}
 	return DefWindowProc(hwnd, msg, wp, lp);
 }
+//57
 ATOM16 RegisterClass16(const WNDCLASS16 *lpWndClass)
 {
 	WNDCLASSEXA wca;
@@ -176,6 +185,21 @@ ATOM16 RegisterClass16(const WNDCLASS16 *lpWndClass)
 	//convert atom table
 	return atom;
 }
+//66
+HDC16 GetDC16(HWND16 hWnd)
+{
+	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
+	HDC hdc = GetDC(hWnd32);
+	return HANDLEToHANDLE16(hdc);
+}
+//68
+BOOL16 ReleaseDC16(HWND16 hWnd, HDC16 hdc)
+{
+	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
+	HDC hdc32 = (HDC)HANDLE16ToHANDLE(hdc);
+	return (BOOL16)ReleaseDC(hWnd32, hdc32);
+}
+//107
 LRESULT16 DefWindowProc16(HWND16 hWnd, UINT16 uMsg, WPARAM16 wParam, LPARAM16 lParam)
 {
 	HWND hwnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
@@ -216,6 +240,7 @@ LRESULT16 DefWindowProc16(HWND16 hWnd, UINT16 uMsg, WPARAM16 wParam, LPARAM16 lP
 	dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X\n", hWnd, uMsg, wParam, lParam);
 	return DefWindowProcA(hwnd32, uMsg, wParam32, lParam32);
 }
+//108
 BOOL16 GetMessage16(MSG16 *lpMsg, HWND16 hWnd, UINT16 uMsgFilterMin,
 	UINT16 uMsgFilterMax)
 {
@@ -231,6 +256,7 @@ BOOL16 GetMessage16(MSG16 *lpMsg, HWND16 hWnd, UINT16 uMsgFilterMin,
 	lpMsg->pt.y = msg32.pt.y;
 	return result;
 }
+//114
 LONG16 DispatchMessage16(const MSG16 *lpMsg)
 {
 	MSG msg32;
@@ -243,6 +269,12 @@ LONG16 DispatchMessage16(const MSG16 *lpMsg)
 	msg32.pt.y = lpMsg->pt.y;
 	return DispatchMessageA(&msg32);
 }
+//124
+void UpdateWindow16(HWND16 hwnd)
+{
+	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hwnd);
+	UpdateWindow(hWnd32);
+}
 //135
 LONG16 GetWindowLong16(HWND16 hWnd, INT16 ByteOffset)
 {
@@ -252,4 +284,22 @@ LONG16 GetWindowLong16(HWND16 hWnd, INT16 ByteOffset)
 		hWnd = hWnd;
 	}
 	return GetWindowLongA(hWnd32, ByteOffset);
+}
+//136
+LONG16 SetWindowLong16(HWND16 hWnd, INT16 ByteOffset, LONG16 Value)
+{
+	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
+	return SetWindowLongA(hWnd32, ByteOffset, Value);
+}
+//173
+HCURSOR16 LoadCursor16(HINSTANCE16 hInstance, LPCSTR pszName)
+{
+	NOTIMPL("LoadCursor(0x%X,%s)\n", hInstance, pszName);
+	return NULL;
+}
+//174
+HICON16 LoadIcon16(HINSTANCE16 hInstance, LPCSTR ResourceID)
+{
+	NOTIMPL("LoadIcon(0x%X,%s)\n", hInstance, ResourceID);
+	return NULL;
 }

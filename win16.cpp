@@ -1,6 +1,7 @@
 #include "win16.h"
 #include "kernel.h"
 #include "user.h"
+#include "gdi.h"
 //一応新しいAPIだし直接呼ばないほうがいいかもしれない?
 void enable_visualstyle(char *path)
 {
@@ -186,6 +187,23 @@ char *get_stringex(int *n)
 	*n += sizeof(DWORD);
 	return _;
 }
+//15
+void _GlobalAlloc16()
+{
+	int argc = 0;
+	DWORD size = get_int32_argex(&argc);
+	UINT16 flags = get_int16_argex(&argc);
+	pascal_result_int16(GlobalAlloc16(flags, size));
+	i80286_far_return_wrap(0, argc);
+}
+//18
+void _GlobalLock16()
+{
+	int argc = 0;
+	HGLOBAL16 hMem = get_int16_argex(&argc);
+	pascal_result_int32(GlobalLock16(hMem));
+	i80286_far_return_wrap(0, argc);
+}
 void _WaitEvent16()
 {
 	pascal_result_int16(WaitEvent16(get_int16_argnp(0)));
@@ -198,6 +216,23 @@ void _GetModuleFileName16()
 	HINSTANCE16 hInstance = *(WORD*)(mem + ((m_base[SS] + ((m_regs.w[SP] + 10) & 0xffff))));
 	pascal_result_int16(GetModuleFileName16(hInstance, (LPSTR)FARPTRToPTR32(lpFileName), nSize));
 	i80286_far_return_wrap(0, 8);
+}
+//51
+void _MakeProcInstance16()
+{
+	int argc = 0;
+	HINSTANCE16 hInst = get_int16_argex(&argc);
+	FARPROC16 lpProc = get_int32_argex(&argc);
+	pascal_result_int32(MakeProcInstance16(lpProc, hInst));
+	i80286_far_return_wrap(0, argc);
+}
+//52
+void _FreeProcInstance16()
+{
+	int argc = 0;
+	FARPROC16 lpProc = get_int32_argex(&argc);
+	FreeProcInstance16(lpProc);
+	i80286_far_return_wrap(0, argc);
 }
 //58
 //INT16 GetProfileString16(LPCSTR lpSect, LPCSTR lpKey, LPCSTR lpDefault, LPSTR lpReturn, INT16 nSize)
@@ -352,11 +387,38 @@ void _CreateWindow16()
 		instance, data));
 	i80286_far_return_wrap(0, argc);
 }
+//42
+void _ShowWindow16()
+{
+	int argc = 0;
+	INT16 nCmdShow = get_int16_argex(&argc);
+	HWND16 hWnd = get_int16_argex(&argc);
+	pascal_result_int16(ShowWindow16(hWnd, nCmdShow));
+	i80286_far_return_wrap(0, argc);
+}
+//57
 void _RegisterClass16()
 {
 	WNDCLASS16 *wc = (WNDCLASS16*)FARPTRToPTR32(*get_int32_arg(0));
 	pascal_result_int16(RegisterClass16(wc));
 	i80286_far_return_wrap(0, 4);
+}
+//66
+void _GetDC16()
+{
+	int argc = 0;
+	HWND16 hWnd = get_int16_argex(&argc);
+	pascal_result_int16(GetDC16(hWnd));
+	i80286_far_return_wrap(0, argc);
+}
+//68
+void _ReleaseDC16()
+{
+	int argc = 0;
+	HDC16 hdc = get_int16_argex(&argc);
+	HWND16 hWnd = get_int16_argex(&argc);
+	pascal_result_int16(ReleaseDC16(hWnd, hdc));
+	i80286_far_return_wrap(0, argc);
 }
 //107
 void _DefWindowProc16()
@@ -386,6 +448,14 @@ void _DispatchMessage16()
 	pascal_result_int32(DispatchMessage16(msg));
 	i80286_far_return_wrap(0, 4);
 }
+//124
+void _UpdateWindow16()
+{
+	int argc = 0;
+	HWND16 hWnd = get_int16_argex(&argc);
+	UpdateWindow16(hWnd);
+	i80286_far_return_wrap(0, argc);
+}
 //135
 void _GetWindowLong16()
 {
@@ -393,18 +463,61 @@ void _GetWindowLong16()
 	INT16 off = get_int16_argex(&argc);
 	HWND16 hwnd = get_int16_argex(&argc);
 	pascal_result_int32(GetWindowLong16(hwnd, off));
-	i80286_far_return_wrap(0, 4);
+	i80286_far_return_wrap(0, argc);
+}
+//136
+void _SetWindowLong16()
+{
+	int argc = 0;
+	LONG16 v = get_int32_argex(&argc);
+	INT16 off = get_int16_argex(&argc);
+	HWND16 hwnd = get_int16_argex(&argc);
+	pascal_result_int32(SetWindowLong16(hwnd, off, v));
+	i80286_far_return_wrap(0, argc);
+}
+//173
+void _LoadCursor16()
+{
+	int argc = 0;
+	LPCSTR pszName = (LPCSTR)FARPTRToPTR32(get_int32_argex(&argc));
+	HINSTANCE16 hInstance = get_int16_argex(&argc);
+	pascal_result_int16(LoadCursor16(hInstance, pszName));
+	i80286_far_return_wrap(0, argc);
+}
+//174
+void _LoadIcon16()
+{
+	int argc = 0;
+	LPCSTR pszName = (LPCSTR)FARPTRToPTR32(get_int32_argex(&argc));
+	HINSTANCE16 hInstance = get_int16_argex(&argc);
+	pascal_result_int16(LoadIcon16(hInstance, pszName));
+	i80286_far_return_wrap(0, argc);
 }
 void _GetStockObject16()
 {
 	REG16(AX) = HANDLEToHANDLE16(GetStockObject(*get_int16_arg(0)));
 	i80286_far_return_wrap(0, 2);
 }
+//330
+void _EnumFontFamilies16()
+{
+	int argc = 0;
+	LPARAM16 UserData = get_int32_argex(&argc);
+	FONTENUMPROC16 lpfnFontEnumProc = get_int32_argex(&argc);
+	char *lpstrFontName = (char*)FARPTRToPTR32(get_int32_argex(&argc));
+	HDC16 hdc = get_int16_argex(&argc);
+	pascal_result_int16(EnumFontFamilies16(hdc, lpstrFontName, lpfnFontEnumProc, UserData));
+	i80286_far_return_wrap(0, argc);
+}
 //pascalは順番にスタックに積む
 int win16_init()
 {
+	kernel_table[15] = _GlobalAlloc16;
+	kernel_table[18] = _GlobalLock16;
 	kernel_table[30] = _WaitEvent16;
 	kernel_table[49] = _GetModuleFileName16;
+	kernel_table[51] = _MakeProcInstance16;
+	kernel_table[52] = _FreeProcInstance16;
 	kernel_table[58] = _GetProfileString16;
 	kernel_table[91] = _InitTask16;
 	user_table[1] = _MessageBox16;
@@ -413,12 +526,20 @@ int win16_init()
 	user_table[32] = _GetWindowRect16;
 	user_table[33] = _GetClientRect16;
 	user_table[41] = _CreateWindow16;
+	user_table[42] = _ShowWindow16;
 	user_table[57] = _RegisterClass16;
+	user_table[66] = _GetDC16;
+	user_table[68] = _ReleaseDC16;
 	user_table[107] = _DefWindowProc16;
 	user_table[108] = _GetMessage16;
 	user_table[114] = _DispatchMessage16;
+	user_table[124] = _UpdateWindow16;
 	user_table[135] = _GetWindowLong16;
+	user_table[136] = _SetWindowLong16;
+	user_table[173] = _LoadCursor16;
+	user_table[174] = _LoadIcon16;
 	gdi_table[87] = _GetStockObject16;
+	gdi_table[330] = _EnumFontFamilies16;
 	//init HANDLE16array
 	for (int i = 1; i < 65536; i++)
 	{
@@ -507,9 +628,14 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 					{
 						addr = __AHSHIFT;
 					}
+					else
 					if (table[j].importordinal.ordinal == __AHINCRORD)
 					{
 						addr = __AHINCR;
+					}
+					else if ((table[j].type & SOURCE_MASK) != FAR_ADDR)
+					{
+						dprintf("WHAT?\n");
 					}
 				}
 				dprintf("IMPORTORDINAL module=%s,ordinal=%d\n", modtable[table[j].importordinal.module - 1], table[j].importordinal.ordinal);
