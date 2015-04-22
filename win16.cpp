@@ -564,6 +564,38 @@ int win16_init()
 	}
 	return 0;
 }
+/*
+#define RT_CURSOR           MAKEINTRESOURCE(1)
+#define RT_BITMAP           MAKEINTRESOURCE(2)
+#define RT_ICON             MAKEINTRESOURCE(3)
+#define RT_MENU             MAKEINTRESOURCE(4)
+#define RT_DIALOG           MAKEINTRESOURCE(5)
+#define RT_STRING           MAKEINTRESOURCE(6)
+#define RT_FONTDIR          MAKEINTRESOURCE(7)
+#define RT_FONT             MAKEINTRESOURCE(8)
+#define RT_ACCELERATOR      MAKEINTRESOURCE(9)
+#define RT_RCDATA           MAKEINTRESOURCE(10)
+#define RT_MESSAGETABLE     MAKEINTRESOURCE(11)
+*/
+typedef struct
+{
+	//WORD align;
+	WORD type;
+	WORD count;
+	DWORD reserved;
+	/*
+	WORD endtype;
+	WORD resourcenames;
+	WORD endnames;*/
+} resource_header;
+typedef struct
+{
+	WORD offset;
+	WORD length;
+	WORD flag;
+	WORD resid;
+	DWORD reserved;
+} resource_table;
 //segment* load_segmentable(const char *file, int length);
 //cs:ip,ss:sp
 //moduleの関数呼び出し
@@ -703,6 +735,35 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 	*di = 0x0000;
 	*ds = (GlobalLock16(hsegtable[NE->ne_autodata - 1].hMem) >> 16);//NE->ne_autodata * 0x1000 + 1;
 	*cs = (GlobalLock16(hsegtable[(NE->ne_csip >> 16) - 1].hMem) >> 16);
+	//リソース読込
+	WORD align = *(WORD*)((char*)NE + NE->ne_rsrctab);
+	BYTE *resptr = ((BYTE*)NE + NE->ne_rsrctab + 2);
+	while (true)
+	{
+		resource_header *resource = (resource_header*)(resptr);
+		if (!resource->type) 
+			break;
+		for (int j = 0; j < resource->count; j++)
+		{
+			resource_table *rest = (resource_table*)((BYTE*)(resource + 1) + sizeof(resource_table) * j);
+			if ((rest->resid & 0x8000) != 0x8000)
+			{
+				printf("type:%X,name:", resource->type);
+				BYTE *baseptr = ((BYTE*)NE + NE->ne_rsrctab) + rest->resid;
+				BYTE len = *baseptr++;
+				for (int i = 0; i < len; i++)
+				{
+					putchar((char)*baseptr++);
+				}
+				putchar('\n');
+			}
+			else
+			{
+				printf("type:%X,type:%X\n", resource->type, rest->resid);
+			}
+		}
+		resptr = (BYTE*)resptr + sizeof(resource_header) + resource->count * sizeof(resource_table);
+	}
 	/*
 	for (int i = 0; i < NE->ne_cmod; i++)
 	{
