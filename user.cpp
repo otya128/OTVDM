@@ -256,17 +256,28 @@ BOOL16 GetMessage16(MSG16 *lpMsg, HWND16 hWnd, UINT16 uMsgFilterMin,
 	lpMsg->pt.y = msg32.pt.y;
 	return result;
 }
+void MSG16ToMSG(const MSG16 *from, MSG *to)
+{
+	to->hwnd = (HWND)HANDLE16ToHANDLE(from->hwnd);
+	to->message = from->message;
+	to->wParam = from->wParam;
+	to->lParam = from->lParam;
+	to->time = from->time;
+	to->pt.x = from->pt.x;
+	to->pt.y = from->pt.y;
+}
+//113
+BOOL16 TranslateMessage16(const MSG16 *lpMsg)
+{
+	MSG msg32;
+	MSG16ToMSG(lpMsg, &msg32);
+	return TranslateMessage(&msg32);
+}
 //114
 LONG16 DispatchMessage16(const MSG16 *lpMsg)
 {
 	MSG msg32;
-	msg32.hwnd = (HWND)HANDLE16ToHANDLE(lpMsg->hwnd);
-	msg32.message = lpMsg->message;
-	msg32.wParam = lpMsg->wParam;
-	msg32.lParam = lpMsg->lParam;
-	msg32.time = lpMsg->time;
-	msg32.pt.x = lpMsg->pt.x;
-	msg32.pt.y = lpMsg->pt.y;
+	MSG16ToMSG(lpMsg, &msg32);
 	return DispatchMessageA(&msg32);
 }
 //124

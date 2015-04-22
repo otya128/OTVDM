@@ -99,7 +99,7 @@ void win16_call_module()
 {
 	WORD module = *(WORD*)(mem + m_pc);
 	WORD ordinal = *(WORD*)(mem + m_pc + 2);
-	NOTIMPL("call %s function:%d\n", modtable[module], ordinal);
+	//NOTIMPL("call %s function:%d\n", modtable[module], ordinal);
 	//NOTIMPL("undefined %s function:%d\n", modtable[module], ordinal);
 	if (!strcmp(modtable[module], "KERNEL"))
 	{
@@ -441,6 +441,13 @@ void _GetMessage16()
 	pascal_result_int16(GetMessage16((MSG16*)FARPTRToPTR32(lpMsg), hWnd, first, last));
 	i80286_far_return_wrap(0, argc);
 }
+//113
+void _TranslateMessage16()
+{
+	MSG16* msg = (MSG16*)FARPTRToPTR32(*get_int32_arg(0));
+	pascal_result_int32(TranslateMessage16(msg));
+	i80286_far_return_wrap(0, 4);
+}
 //114
 void _DispatchMessage16()
 {
@@ -532,6 +539,7 @@ int win16_init()
 	user_table[68] = _ReleaseDC16;
 	user_table[107] = _DefWindowProc16;
 	user_table[108] = _GetMessage16;
+	user_table[113] = _TranslateMessage16;
 	user_table[114] = _DispatchMessage16;
 	user_table[124] = _UpdateWindow16;
 	user_table[135] = _GetWindowLong16;

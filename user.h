@@ -41,6 +41,8 @@ LRESULT16 DefWindowProc16(HWND16 hWnd, UINT16 uMsg, WPARAM16 wParam, LPARAM16 lP
 //108
 BOOL16 GetMessage16(MSG16 *lpMsg, HWND16 hWnd, UINT16 uMsgFilterMin,
 	UINT16 uMsgFilterMax);
+//113
+BOOL16 TranslateMessage16(const MSG16 *lpMsg);
 //114
 LONG16 DispatchMessage16(const MSG16 *lpMsg);
 //124
