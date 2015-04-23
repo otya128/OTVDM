@@ -125,6 +125,8 @@ void win16_call_module()
 			return;
 		}
 	}
+	//
+	REG16(AX) = 0;//とりあえず
 	NOTIMPL("undefined %s function:%d\n", modtable[module], ordinal);
 	i80286_far_return_wrap(0, 0);
 }
@@ -596,6 +598,17 @@ typedef struct
 	WORD resid;
 	DWORD reserved;
 } resource_table;
+typedef enum : WORD
+{
+	RT_MENU16_POPUP = 0x10,
+	RT_MENU16_END = 0x80,
+} rt_menu_type;
+typedef struct
+{
+	rt_menu_type type;
+	WORD id;
+} rt_menu;
+rt_menu *load_rt_menu(rt_menu *menu);
 //segment* load_segmentable(const char *file, int length);
 //cs:ip,ss:sp
 //moduleの関数呼び出し
@@ -736,7 +749,7 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 	*ds = (GlobalLock16(hsegtable[NE->ne_autodata - 1].hMem) >> 16);//NE->ne_autodata * 0x1000 + 1;
 	*cs = (GlobalLock16(hsegtable[(NE->ne_csip >> 16) - 1].hMem) >> 16);
 	//リソース読込
-	WORD align = *(WORD*)((char*)NE + NE->ne_rsrctab);
+	WORD resalign = *(WORD*)((char*)NE + NE->ne_rsrctab);
 	BYTE *resptr = ((BYTE*)NE + NE->ne_rsrctab + 2);
 	while (true)
 	{
@@ -753,9 +766,60 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 				BYTE len = *baseptr++;
 				for (int i = 0; i < len; i++)
 				{
-					putchar((char)*baseptr++);
+					dprintf("%c",(char)*baseptr++);
 				}
-				putchar('\n');
+				dprintf("\n");
+				DWORD offset = rest->offset << resalign;
+				if ((resource->type & 0xFFF) == (WORD)RT_MENU)
+				{
+					dprintf("RT_MENU\n");
+					DWORD length = rest->length << resalign;
+					rt_menu_type *menutype = (rt_menu_type*)(file + offset + 4);
+					if (*menutype & RT_MENU16_POPUP)
+					{
+						const char *menuname = (char*)(menutype + 1);
+						int len = strlen(menuname) + 1;
+						dprintf("%s\n", menuname);
+						rt_menu *menu = (rt_menu*)(menuname + len);
+						while (true)
+						{
+							while (true)
+							{
+								if (menu->type & RT_MENU16_END)
+								{
+									menu = load_rt_menu(menu);
+									break;
+								}
+								menu = load_rt_menu(menu);
+							}
+							if (*menutype & RT_MENU16_END) break;
+							menutype = (rt_menu_type*)(menu);
+							menuname = (char*)(menutype + 1);
+							len = strlen(menuname) + 1;
+							dprintf("%s\n", menuname);
+							menu = (rt_menu*)(menuname + len);
+							if (!(*menutype & RT_MENU16_POPUP))
+							{
+								WARN("resource:unknown menu item:%X\n", *menutype);
+								break;
+							}
+						}
+					}
+					else
+					{
+						WARN("resource:unknown menu item:%X\n", *menutype);
+					}
+					/*
+					WORD unknown = *(WORD*)(menu);
+					menu += sizeof(DWORD);
+					rt_menu_type menutype = *(rt_menu_type*)menu;
+					menu += sizeof(rt_menu_type);
+					if (menu->type & RT_MENU16_POPUP)
+					{
+						dprintf("%s", (char*)menu);
+						break;
+					}*/
+				}
 			}
 			else
 			{
@@ -770,6 +834,37 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 		free(modtable[i]);
 	}
 	free(modtable);*/
+}
+rt_menu *load_rt_menu(rt_menu *menu)
+{
+	const char *menuname = (char*)(menu + 1);
+	int len = strlen(menuname) + 1;
+	if (menu->type & RT_MENU16_POPUP)
+	{
+		dprintf("POPUP:%s\n", menuname);
+		menu = (rt_menu*)(menuname + len);
+		//TODO:動作未確認
+		while (true)
+		{
+			if (menu->type & RT_MENU16_END)
+			{
+				menu = load_rt_menu(menu);
+				break;
+			}
+			menu = load_rt_menu(menu);
+		}
+		return menu;
+	}
+	if (len == 1)
+	{
+		dprintf("ITEM:SEPARATOR\n");
+	}
+	else
+	{
+		dprintf("ITEM:%s\n", menuname);
+	}
+	menu = (rt_menu*)(menuname + len);
+	return menu;
 }
 bool loadne(char *argv[])
 {

@@ -25,6 +25,7 @@
 #else
 #define dprintf(...)
 #endif
+#define WARN printf("WARN:");printf
 bool isNE(const char* file);
 void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UINT16 *di, UINT16 *ds, UINT8 *mem);
 bool is_started_from_command_prompt();
