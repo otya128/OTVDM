@@ -1,4 +1,37 @@
 #include "user.h"
+#include <map>
+//ウインドウメッセージを表示するかどうか
+#ifdef WIN16_DEBUG_MSG
+ #define DMSGPRINTF dprintf
+#else
+ #define DMSGPRINTF
+#endif
+bool case_insensitive_string::operator < (const case_insensitive_string&rhs) const
+{
+	return _stricmp(this->c_str(), rhs.c_str()) < 0;
+}
+bool case_insensitive_string::operator > (const case_insensitive_string&rhs) const
+{
+	return _stricmp(this->c_str(), rhs.c_str()) > 1;
+}
+bool case_insensitive_string::operator <= (const case_insensitive_string&rhs) const
+{
+	return _stricmp(this->c_str(), rhs.c_str()) <= 0;
+}
+bool case_insensitive_string::operator >= (const case_insensitive_string&rhs) const
+{
+	return _stricmp(this->c_str(), rhs.c_str()) >= 0;
+}
+bool case_insensitive_string::operator == (const case_insensitive_string&rhs) const
+{
+	return _stricmp(this->c_str(), rhs.c_str()) == 0;
+}
+case_insensitive_string::case_insensitive_string(const char* c) : std::string(c)
+{
+
+}
+std::map<case_insensitive_string, HMENU16> resource_menu;
+std::map<case_insensitive_string, HMENU16> class_resource_menu;
 //1
 INT16 MessageBox16(HWND16 hWndParent, LPCSTR lpszMessage, LPCSTR lpszTitle, UINT16 uStyle)
 {
@@ -50,6 +83,11 @@ HWND16 CreateWindowEx16(DWORD dwExStyle, LPCSTR lpszClassName, LPCSTR lpszWindow
 	DWORD dwStyle, INT16 x, INT16 y, INT16 nWidth, INT16 nHeight, HWND16 hWndParent, HMENU16 hMenu,
 	HINSTANCE16 hInstance, LPVOID16 lpCreateParams)
 {
+	HMENU hMenu32 = (HMENU)HANDLE16ToHANDLE(hMenu);
+	if (!hMenu32)
+	{
+		hMenu32 = (HMENU)HANDLE16ToHANDLE(class_resource_menu[lpszClassName]);
+	}
 	HWND hWnd = CreateWindowExA(dwExStyle,
 		lpszClassName,
 		lpszWindowName,
@@ -59,7 +97,7 @@ HWND16 CreateWindowEx16(DWORD dwExStyle, LPCSTR lpszClassName, LPCSTR lpszWindow
 		nWidth == CW_USEDEFAULT16 ? CW_USEDEFAULT : nWidth,
 		nHeight == CW_USEDEFAULT16 ? CW_USEDEFAULT : nHeight,
 		(HWND)HANDLE16ToHANDLE(hWndParent),
-		(HMENU)HANDLE16ToHANDLE(hMenu),
+		hMenu32,
 		(HINSTANCE)HANDLE16ToHANDLE(hInstance),
 		(LPVOID)lpCreateParams);
 	return HANDLEToHANDLE16(hWnd);
@@ -76,7 +114,6 @@ BOOL16 DestroyWindow16(HWND16 hWnd)
 	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
 	return DestroyWindow(hWnd32);
 }
-#include <map>
 //とりあえず
 //TODO:ATOM実装したい
 DWORD i86_galloca_ptr(void *ptr, WORD size);
@@ -156,7 +193,7 @@ LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			PUSH(cs);
 			PUSH(ip);
 			m_pc = (m_base[CS] + offset)&AMASK;
-			dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X,cs:%X,ip:%X\n", hwnd16, msg, wp, lp, cs, ip);
+			DMSGPRINTF("hwnd:%X,msg:%X,wp:%X,lp:%X,cs:%X,ip:%X\n", hwnd16, msg, wp, lp, cs, ip);
 			//CreateWindowの中でも呼ばれるので強引に
 			//メッセージを溜めるようにした方がいいかもしれない
 			while (m_regs.w[SP] < stk)
@@ -187,6 +224,7 @@ ATOM16 RegisterClass16(const WNDCLASS16 *lpWndClass)
 	wca.lpszClassName = (LPCSTR)FARPTRToPTR32(lpWndClass->lpszClassName);
 	wca.hIconSm = NULL;
 	wprocmap[wca.lpszClassName] = lpWndClass->lpfnWndProc;
+	class_resource_menu[wca.lpszClassName] = resource_menu[wca.lpszMenuName];
 	ATOM atom = RegisterClassExA(&wca);
 	//convert atom table
 	return atom;
@@ -243,7 +281,7 @@ LRESULT16 DefWindowProc16(HWND16 hWnd, UINT16 uMsg, WPARAM16 wParam, LPARAM16 lP
 		lParam32 = (LPARAM)HANDLE16ToHANDLE(lParam);
 	}
 	//TODO:result
-	dprintf("hwnd:%X,msg:%X,wp:%X,lp:%X\n", hWnd, uMsg, wParam, lParam);
+	DMSGPRINTF("hwnd:%X,msg:%X,wp:%X,lp:%X\n", hWnd, uMsg, wParam, lParam);
 	return DefWindowProcA(hwnd32, uMsg, wParam32, lParam32);
 }
 //108

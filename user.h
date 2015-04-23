@@ -2,6 +2,18 @@
 USER.EXE header
 */
 #include "wow32.h"
+#include <map>
+class case_insensitive_string : std::string
+{
+public:
+	bool operator < (const case_insensitive_string&rhs) const;
+	bool operator > (const case_insensitive_string&rhs) const;
+	bool operator <= (const case_insensitive_string&rhs) const;
+	bool operator >= (const case_insensitive_string&rhs) const;
+	bool operator == (const case_insensitive_string&rhs) const;
+	case_insensitive_string(const char* c);
+};
+extern std::map<case_insensitive_string, HMENU16> resource_menu;
 typedef WORD ATOM16;
 #define CW_USEDEFAULT16   ((INT16)0x8000)
 typedef struct {

@@ -608,7 +608,7 @@ typedef struct
 	rt_menu_type type;
 	WORD id;
 } rt_menu;
-rt_menu *load_rt_menu(rt_menu *menu);
+rt_menu *load_rt_menu(rt_menu *menu, HMENU hMenu);
 //segment* load_segmentable(const char *file, int length);
 //cs:ip,ss:sp
 //moduleの関数呼び出し
@@ -764,14 +764,15 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 				printf("type:%X,name:", resource->type);
 				BYTE *baseptr = ((BYTE*)NE + NE->ne_rsrctab) + rest->resid;
 				BYTE len = *baseptr++;
-				for (int i = 0; i < len; i++)
-				{
-					dprintf("%c",(char)*baseptr++);
-				}
-				dprintf("\n");
+				char menuname[sizeof(BYTE) * 255];
+				memcpy(menuname, baseptr, len);
+				menuname[len] = '\0';
+				dprintf("%s\n", menuname);
 				DWORD offset = rest->offset << resalign;
 				if ((resource->type & 0xFFF) == (WORD)RT_MENU)
 				{
+					HMENU hMenu = CreateMenu();
+					resource_menu[menuname] = HANDLEToHANDLE16(hMenu);
 					dprintf("RT_MENU\n");
 					DWORD length = rest->length << resalign;
 					rt_menu_type *menutype = (rt_menu_type*)(file + offset + 4);
@@ -783,14 +784,16 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 						rt_menu *menu = (rt_menu*)(menuname + len);
 						while (true)
 						{
+							HMENU submenu = CreateMenu();
+							AppendMenuA(hMenu, MF_ENABLED | MF_STRING | MF_POPUP, (UINT_PTR)submenu, menuname);
 							while (true)
 							{
 								if (menu->type & RT_MENU16_END)
 								{
-									menu = load_rt_menu(menu);
+									menu = load_rt_menu(menu, submenu);
 									break;
 								}
-								menu = load_rt_menu(menu);
+								menu = load_rt_menu(menu, submenu);
 							}
 							if (*menutype & RT_MENU16_END) break;
 							menutype = (rt_menu_type*)(menu);
@@ -835,7 +838,7 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 	}
 	free(modtable);*/
 }
-rt_menu *load_rt_menu(rt_menu *menu)
+rt_menu *load_rt_menu(rt_menu *menu, HMENU hMenu)
 {
 	const char *menuname = (char*)(menu + 1);
 	int len = strlen(menuname) + 1;
@@ -846,22 +849,25 @@ rt_menu *load_rt_menu(rt_menu *menu)
 		//TODO:動作未確認
 		while (true)
 		{
+			//Popupメニュー作る
 			if (menu->type & RT_MENU16_END)
 			{
-				menu = load_rt_menu(menu);
+				menu = load_rt_menu(menu, hMenu);
 				break;
 			}
-			menu = load_rt_menu(menu);
+			menu = load_rt_menu(menu, hMenu);
 		}
 		return menu;
 	}
 	if (len == 1)
 	{
 		dprintf("ITEM:SEPARATOR\n");
+		AppendMenuA(hMenu, MF_ENABLED | MF_STRING | MF_SEPARATOR, menu->id, menuname);
 	}
 	else
 	{
 		dprintf("ITEM:%s\n", menuname);
+		AppendMenuA(hMenu, MF_ENABLED | MF_STRING, menu->id, menuname);
 	}
 	menu = (rt_menu*)(menuname + len);
 	return menu;
