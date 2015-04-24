@@ -118,6 +118,7 @@ typedef struct
 } reloctable;
 #define MAX_MEM 0x1000000
 extern UINT8 mem[MAX_MEM + 3];
+#define PUSHB(val)               { m_regs.w[SP] -= 1; mem[((m_base[SS] + m_regs.w[SP]) & AMASK)] = val;}//WriteByte(((m_base[SS] + m_regs.w[SP]) & AMASK), val); }
 #define NOTIMPL dprintf("noimpl:");dprintf
 typedef WORD HANDLE16;
 typedef HANDLE16 HTASK16;
@@ -208,4 +209,6 @@ typedef struct
 } HANDLE16Data;
 extern HANDLE16Data HANDLE16array[65536];
 HANDLE16Data *gethandledata(HANDLE16 handle);
+DWORD i86_galloca_ptr(void *ptr, WORD size);
+void i86_gfree_ptr(WORD size);
 #endif

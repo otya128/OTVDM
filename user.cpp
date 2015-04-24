@@ -116,8 +116,6 @@ BOOL16 DestroyWindow16(HWND16 hWnd)
 }
 //‚Æ‚è‚ ‚¦‚¸
 //TODO:ATOMŽÀ‘•‚µ‚½‚¢
-DWORD i86_galloca_ptr(void *ptr, WORD size);
-void i86_gfree_ptr(WORD size);
 extern std::map<std::string, DWORD> wprocmap;
 LRESULT CALLBACK Win16WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {

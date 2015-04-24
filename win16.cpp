@@ -305,6 +305,7 @@ HANDLE16 HANDLEToHANDLE16(HANDLE handle)
 }
 void *FARPTRToPTR32(DWORD farptr)
 {
+	if (!farptr) return NULL;
 	WORD segment = farptr >> 16;
 	WORD ptr = farptr;
 	if (!(mem + segment * 16 + ptr))return NULL;
@@ -750,6 +751,8 @@ void dos_loadne(UINT8 *file, UINT16 *cs, UINT16 *ss, UINT16 *ip, UINT16 *sp, UIN
 	*cs = (GlobalLock16(hsegtable[(NE->ne_csip >> 16) - 1].hMem) >> 16);
 	//リソース読込
 	WORD resalign = *(WORD*)((char*)NE + NE->ne_rsrctab);
+	//TODO:リソースの有無の判断はどうするのか不明
+	if (resalign != NE->ne_align) return;//とりあえずalignの不一致で判定
 	BYTE *resptr = ((BYTE*)NE + NE->ne_rsrctab + 2);
 	while (true)
 	{
