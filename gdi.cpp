@@ -88,6 +88,7 @@ void TEXTMETRICToTEXTMETRIC16(const TEXTMETRIC *from, TEXTMETRIC16 *to)
 //330
 int CALLBACK Win16FontEnumProc(CONST LOGFONTA *logfont, CONST TEXTMETRICA *textmetrica, DWORD fonttype, LPARAM data)
 {
+	//dprintf("Win16FontEnumProc %s\n", logfont->lfFaceName);
 	if (!WIN16_FontEnumProc) return 0;
 	LOGFONT16 logfont16;
 	TEXTMETRIC16 textmetric16;

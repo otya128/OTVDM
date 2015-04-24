@@ -114,6 +114,12 @@ BOOL16 DestroyWindow16(HWND16 hWnd)
 	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
 	return DestroyWindow(hWnd32);
 }
+//56
+BOOL16 MoveWindow16(HWND16 hWnd, INT16 LeftPos, INT16 TopPos, INT16 Width, INT16 Height, BOOL16 bRepaint)
+{
+	HWND hWnd32 = (HWND)HANDLE16ToHANDLE(hWnd);
+	return MoveWindow(hWnd32, LeftPos, TopPos, Width, Height, bRepaint);
+}
 //‚Æ‚è‚ ‚¦‚¸
 //TODO:ATOMŽÀ‘•‚µ‚½‚¢
 extern std::map<std::string, DWORD> wprocmap;

@@ -44,6 +44,8 @@ HWND16 CreateWindowEx16(DWORD dwExStyle, LPCSTR lpszClassName, LPCSTR lpszWindow
 BOOL16 ShowWindow16(HWND16 hWnd, INT16 nCmdShow);
 //53
 BOOL16 DestroyWindow16(HWND16 hWnd);
+//56
+BOOL16 MoveWindow16(HWND16 hWnd, INT16 LeftPos, INT16 TopPos, INT16 Width, INT16 Height, BOOL16 bRepaint);
 //57
 ATOM16 RegisterClass16(const WNDCLASS16 *lpWndClass);
 //66
